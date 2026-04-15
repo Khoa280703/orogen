@@ -1,0 +1,144 @@
+{
+  "base_url": "http://127.0.0.1:8004",
+  "model": "qwen3.5-4b",
+  "started_at": 1776178261.4265935,
+  "scenarios": [
+    {
+      "scenario": "16k_x24",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 24,
+      "actual_prompt_tokens_min": 16377,
+      "actual_prompt_tokens_max": 16384,
+      "aggregate_target_tokens": 393153,
+      "requests": 24,
+      "success": 17,
+      "fail": 7,
+      "success_rate": 0.7083333333333334,
+      "wall_time_s": 22.28942884900607,
+      "req_per_s": 1.0767436062440965,
+      "avg_latency_s": 21.184206594411723,
+      "p50_latency_s": 22.03555533103645,
+      "p95_latency_s": 22.2801928720437,
+      "peak_queue_size": 0,
+      "samples_count": 12,
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 320000
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 8,
+          "peak_reserved_tokens": 131051,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 9,
+          "peak_reserved_tokens": 147428,
+          "budget": 400000
+        }
+      },
+      "errors": [
+        "HTTP 500",
+        "HTTP 500",
+        "HTTP 500",
+        "HTTP 500",
+        "HTTP 502"
+      ],
+      "details": [
+        "{\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+        "{\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+        "{\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}"
+      ]
+    },
+    {
+      "scenario": "64k_x12",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 12,
+      "actual_prompt_tokens_min": 65525,
+      "actual_prompt_tokens_max": 65534,
+      "aggregate_target_tokens": 786327,
+      "requests": 12,
+      "success": 12,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 78.54621003987268,
+      "req_per_s": 0.152776308289202,
+      "avg_latency_s": 76.58376983665705,
+      "p50_latency_s": 76.56216798548121,
+      "p95_latency_s": 78.53833631100133,
+      "peak_queue_size": 0,
+      "samples_count": 40,
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 320000
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393159,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393168,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "128k_x8",
+      "target_tokens_nominal": 131072,
+      "max_tokens": 128,
+      "concurrency": 8,
+      "actual_prompt_tokens_min": 131063,
+      "actual_prompt_tokens_max": 131063,
+      "aggregate_target_tokens": 1048504,
+      "requests": 8,
+      "success": 0,
+      "fail": 8,
+      "success_rate": 0.0,
+      "wall_time_s": 2.0283846030943096,
+      "req_per_s": 3.944025204981326,
+      "avg_latency_s": null,
+      "p50_latency_s": null,
+      "p95_latency_s": null,
+      "peak_queue_size": 0,
+      "samples_count": 2,
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 320000
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 400000
+        }
+      },
+      "errors": [
+        "HTTP 400",
+        "HTTP 400",
+        "HTTP 400",
+        "HTTP 400",
+        "HTTP 400"
+      ],
+      "details": [
+        "{\"error\": \"Input vuot gioi han context cong khai.\", \"input_tokens\": 131063, \"max_input_tokens\": 128000}",
+        "{\"error\": \"Input vuot gioi han context cong khai.\", \"input_tokens\": 131063, \"max_input_tokens\": 128000}",
+        "{\"error\": \"Input vuot gioi han context cong khai.\", \"input_tokens\": 131063, \"max_input_tokens\": 128000}"
+      ]
+    }
+  ]
+}

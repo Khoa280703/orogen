@@ -1,0 +1,412 @@
+{
+  "base_url": "http://127.0.0.1:8006",
+  "model": "qwen3.5-4b",
+  "started_at": 1776179369.303467,
+  "health_before": {
+    "ok": true,
+    "model": "qwen3.5-4b",
+    "healthy_upstreams": [
+      "http://127.0.0.1:8101",
+      "http://127.0.0.1:8102"
+    ],
+    "queue_size": 0,
+    "max_input_tokens": 128000,
+    "max_total_tokens": 131072,
+    "upstreams": {
+      "http://127.0.0.1:8101": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "remaining_tokens": 400000
+      },
+      "http://127.0.0.1:8102": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "remaining_tokens": 400000
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "16k_x24",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 24,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 392606,
+      "requests": 24,
+      "success": 24,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 30.181599331088364,
+      "req_per_s": 0.7951864888511376,
+      "avg_latency_s": 29.8317942469245,
+      "p50_latency_s": 29.825102923088707,
+      "p95_latency_s": 30.14155691524502,
+      "peak_queue_size": 0,
+      "samples_count": 31,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 12,
+          "peak_reserved_tokens": 196325,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 12,
+          "peak_reserved_tokens": 196281,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "16k_x32",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 32,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 523438,
+      "requests": 32,
+      "success": 32,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 40.54140382492915,
+      "req_per_s": 0.7893165253523612,
+      "avg_latency_s": 39.527273681014776,
+      "p50_latency_s": 39.49089512252249,
+      "p95_latency_s": 40.49073670116486,
+      "peak_queue_size": 0,
+      "samples_count": 41,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 16,
+          "peak_reserved_tokens": 261719,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 16,
+          "peak_reserved_tokens": 261719,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "16k_x40",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 40,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 654270,
+      "requests": 40,
+      "success": 40,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 50.845556990941986,
+      "req_per_s": 0.7866960727193116,
+      "avg_latency_s": 49.463020088349005,
+      "p50_latency_s": 49.41052439901978,
+      "p95_latency_s": 50.78068030620925,
+      "peak_queue_size": 0,
+      "samples_count": 51,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 20,
+          "peak_reserved_tokens": 327135,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 20,
+          "peak_reserved_tokens": 327135,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "16k_x48",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 48,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 785102,
+      "requests": 48,
+      "success": 47,
+      "fail": 1,
+      "success_rate": 0.9791666666666666,
+      "wall_time_s": 63.41295297304168,
+      "req_per_s": 0.7569431440987445,
+      "avg_latency_s": 61.70658937660343,
+      "p50_latency_s": 61.825164099922404,
+      "p95_latency_s": 62.99456591869239,
+      "peak_queue_size": 0,
+      "samples_count": 64,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 23,
+          "peak_reserved_tokens": 376208,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 24,
+          "peak_reserved_tokens": 392540,
+          "budget": 400000
+        }
+      },
+      "errors": [
+        "ConnectionResetError"
+      ],
+      "details": [
+        "[Errno 104] Connection reset by peer"
+      ]
+    },
+    {
+      "scenario": "64k_x12",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 12,
+      "actual_prompt_tokens_min": 65515,
+      "actual_prompt_tokens_max": 65522,
+      "aggregate_target_tokens": 786250,
+      "requests": 12,
+      "success": 12,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 84.56579691614024,
+      "req_per_s": 0.14190134117579253,
+      "avg_latency_s": 83.09314451153234,
+      "p50_latency_s": 83.05745589756407,
+      "p95_latency_s": 84.49481603732565,
+      "peak_queue_size": 0,
+      "samples_count": 85,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393125,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393125,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "64k_x14",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 14,
+      "actual_prompt_tokens_min": 65515,
+      "actual_prompt_tokens_max": 65522,
+      "aggregate_target_tokens": 917280,
+      "requests": 14,
+      "success": 14,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 108.51712135109119,
+      "req_per_s": 0.12901189992595785,
+      "avg_latency_s": 92.90001568971535,
+      "p50_latency_s": 85.20166034344584,
+      "p95_latency_s": 108.43024574165466,
+      "peak_queue_size": 2,
+      "samples_count": 109,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393125,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393125,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "64k_x16",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 16,
+      "actual_prompt_tokens_min": 65515,
+      "actual_prompt_tokens_max": 65522,
+      "aggregate_target_tokens": 1048310,
+      "requests": 16,
+      "success": 16,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 113.39801296498626,
+      "req_per_s": 0.14109594676002213,
+      "avg_latency_s": 102.29984341896488,
+      "p50_latency_s": 108.6780786095187,
+      "p95_latency_s": 113.30258797848364,
+      "peak_queue_size": 4,
+      "samples_count": 114,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393118,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393125,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x6",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 6,
+      "actual_prompt_tokens_min": 126981,
+      "actual_prompt_tokens_max": 126981,
+      "aggregate_target_tokens": 761886,
+      "requests": 6,
+      "success": 6,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 111.55339059606194,
+      "req_per_s": 0.05378590438121396,
+      "avg_latency_s": 108.8003987269476,
+      "p50_latency_s": 108.78639608353842,
+      "p95_latency_s": 111.47816276567755,
+      "peak_queue_size": 0,
+      "samples_count": 112,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380943,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380943,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x9",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 9,
+      "actual_prompt_tokens_min": 126981,
+      "actual_prompt_tokens_max": 126981,
+      "aggregate_target_tokens": 1142829,
+      "requests": 9,
+      "success": 9,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 176.82908276095986,
+      "req_per_s": 0.050896605125562586,
+      "avg_latency_s": 137.26517295366568,
+      "p50_latency_s": 145.08864968409762,
+      "p95_latency_s": 176.71127061680892,
+      "peak_queue_size": 3,
+      "samples_count": 177,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380943,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380943,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x12",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 12,
+      "actual_prompt_tokens_min": 126962,
+      "actual_prompt_tokens_max": 126985,
+      "aggregate_target_tokens": 1523590,
+      "requests": 12,
+      "success": 12,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 220.83050348516554,
+      "req_per_s": 0.05434031898046236,
+      "avg_latency_s": 169.79423968740352,
+      "p50_latency_s": 181.16319365310483,
+      "p95_latency_s": 220.67149781980552,
+      "peak_queue_size": 6,
+      "samples_count": 221,
+      "monitor_errors": {},
+      "upstreams": {
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380886,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380909,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    }
+  ],
+  "finished_at": 1776180609.5357504,
+  "health_after": {
+    "ok": true,
+    "model": "qwen3.5-4b",
+    "healthy_upstreams": [
+      "http://127.0.0.1:8101",
+      "http://127.0.0.1:8102"
+    ],
+    "queue_size": 0,
+    "max_input_tokens": 128000,
+    "max_total_tokens": 131072,
+    "upstreams": {
+      "http://127.0.0.1:8101": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "remaining_tokens": 400000
+      },
+      "http://127.0.0.1:8102": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "remaining_tokens": 400000
+      }
+    }
+  }
+}

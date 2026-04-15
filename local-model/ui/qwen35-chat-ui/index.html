@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Qwen Local Chat</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="sidebar">
+        <h1>Qwen Local Chat</h1>
+        <p class="muted" id="status-line">Đang tải cấu hình...</p>
+
+        <label>
+          Model
+          <select id="model-select"></select>
+        </label>
+
+        <label>
+          Mode
+          <select id="mode-select">
+            <option value="deep" selected>Deep</option>
+            <option value="fast">Fast</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+
+        <label>
+          System prompt
+          <textarea id="system-prompt" rows="6">Bạn là Qwen3.5 đang chạy local qua vLLM trên máy của người dùng. Trả lời bằng tiếng Việt, chính xác. Không tự nhận là Gemini, ChatGPT, Claude hay model khác. Nếu được hỏi bạn là model gì, hãy trả lời rằng bạn là Qwen3.5 đang chạy local trên máy này.</textarea>
+        </label>
+
+        <div class="grid">
+          <label>
+            Temperature
+            <input id="temperature-input" type="number" min="0" max="2" step="0.1" value="0.6" />
+          </label>
+          <label>
+            Max tokens
+            <input id="max-tokens-input" type="number" min="1" max="8192" step="1" value="2048" />
+          </label>
+        </div>
+
+        <label class="checkbox-row">
+          <input id="thinking-toggle" type="checkbox" checked />
+          <span>Bật thinking</span>
+        </label>
+
+        <p class="muted">
+          Deep giữ thinking mặc định và tăng ngân sách output. Fast ưu tiên tốc độ, giảm output và tắt thinking.
+        </p>
+
+        <button id="clear-chat-button" class="secondary" type="button">Xóa hội thoại</button>
+      </section>
+
+      <section class="chat-panel">
+        <div id="messages" class="messages"></div>
+        <form id="chat-form" class="composer">
+          <textarea id="user-input" rows="4" placeholder="Nhập prompt ở đây..." required></textarea>
+          <div class="composer-actions">
+            <span class="muted" id="request-state">Sẵn sàng</span>
+            <button id="send-button" type="submit">Gửi</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <template id="message-template">
+      <article class="message">
+        <header class="message-role"></header>
+        <pre class="message-content"></pre>
+      </article>
+    </template>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

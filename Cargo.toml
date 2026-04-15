@@ -1,0 +1,32 @@
+[package]
+name = "grok-local"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+axum = { version = "0.7", features = ["macros"] }
+tokio = { version = "1", features = ["full", "process"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+async-trait = "0.1"
+uuid = { version = "1", features = ["v4"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+futures = "0.3"
+async-stream = "0.3"
+tower-http = { version = "0.6", features = ["cors", "set-header"] }
+clap = { version = "4", features = ["derive"] }
+reqwest = { version = "0.11", features = ["json"] }
+wreq = { version = "6.0.0-rc.28", features = ["stream", "json", "gzip", "brotli", "deflate", "zstd", "socks"] }
+wreq-util = "3.0.0-rc.10"
+rand = "0.9"
+base64 = "0.22"
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid", "json"] }
+dotenvy = "0.15"
+tower = { version = "0.4", features = ["util"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+jsonwebtoken = "9"
+tokio-socks = "0.5"
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-native-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring"] }

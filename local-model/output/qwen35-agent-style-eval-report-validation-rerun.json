@@ -1,0 +1,1280 @@
+{
+  "generated_at": "2026-04-15T07:35:00.920643+00:00",
+  "base_url": "http://127.0.0.1:8004",
+  "model": "qwen3.5-4b",
+  "cases_file": "evals/qwen35-agent-style-eval-cases.json",
+  "manifest": {
+    "format": "qwen35-agent-style-eval-manifest-v1",
+    "scorecard_path": "agent-style-eval/scorecard-schema.json",
+    "buckets": [
+      {
+        "bucket": "coding-fix",
+        "path": "agent-style-eval/coding-fix.jsonl"
+      },
+      {
+        "bucket": "code-understanding",
+        "path": "agent-style-eval/code-understanding.jsonl"
+      },
+      {
+        "bucket": "grounded-docs-qa",
+        "path": "agent-style-eval/grounded-docs-qa.jsonl"
+      },
+      {
+        "bucket": "research-synthesis",
+        "path": "agent-style-eval/research-synthesis.jsonl"
+      },
+      {
+        "bucket": "plan-repair",
+        "path": "agent-style-eval/plan-repair.jsonl"
+      }
+    ]
+  },
+  "scorecard": {
+    "format": "qwen35-agent-style-scorecard-v1",
+    "dimensions": [
+      "correctness",
+      "groundedness",
+      "concision",
+      "verifier_pass_rate",
+      "citation_faithfulness"
+    ],
+    "bucket_dimensions": {
+      "coding-fix": [
+        "correctness",
+        "concision"
+      ],
+      "code-understanding": [
+        "correctness"
+      ],
+      "grounded-docs-qa": [
+        "correctness",
+        "groundedness",
+        "citation_faithfulness"
+      ],
+      "research-synthesis": [
+        "correctness",
+        "concision"
+      ],
+      "plan-repair": [
+        "correctness",
+        "concision",
+        "verifier_pass_rate"
+      ]
+    },
+    "notes": [
+      "dimension_scores is driven by case-level dimension_checks for this suite; validation now requires every mapped dimension to be annotated on every case",
+      "dimension_proxies is retained for backward comparison with older snapshots",
+      "coding-fix and code-understanding are mostly correctness-heavy",
+      "grounded-docs-qa emphasizes groundedness and citation_faithfulness",
+      "research-synthesis and plan-repair emphasize correctness and concision"
+    ]
+  },
+  "validation": {
+    "cases": 40,
+    "buckets": {
+      "coding-fix": 8,
+      "code-understanding": 8,
+      "grounded-docs-qa": 8,
+      "research-synthesis": 8,
+      "plan-repair": 8
+    },
+    "dimension_coverage": {
+      "correctness": 40,
+      "groundedness": 8,
+      "concision": 24,
+      "verifier_pass_rate": 8,
+      "citation_faithfulness": 8
+    }
+  },
+  "summary": {
+    "overall": {
+      "cases": 40,
+      "pass": 35,
+      "fail": 5,
+      "pass_rate": 0.875
+    },
+    "buckets": {
+      "coding-fix": {
+        "cases": 8,
+        "pass": 8,
+        "fail": 0,
+        "pass_rate": 1.0
+      },
+      "code-understanding": {
+        "cases": 8,
+        "pass": 7,
+        "fail": 1,
+        "pass_rate": 0.875
+      },
+      "grounded-docs-qa": {
+        "cases": 8,
+        "pass": 8,
+        "fail": 0,
+        "pass_rate": 1.0
+      },
+      "research-synthesis": {
+        "cases": 8,
+        "pass": 6,
+        "fail": 2,
+        "pass_rate": 0.75
+      },
+      "plan-repair": {
+        "cases": 8,
+        "pass": 6,
+        "fail": 2,
+        "pass_rate": 0.75
+      }
+    },
+    "dimension_scores": {
+      "source": "case-level dimension_checks; proxy fallback remains for other suites that do not enforce full mapped-dimension coverage",
+      "values": {
+        "correctness": {
+          "cases": 40,
+          "pass": 36,
+          "fail": 4,
+          "scored_cases": 40,
+          "proxy_cases": 0,
+          "pass_rate": 0.9,
+          "coverage": 1.0
+        },
+        "groundedness": {
+          "cases": 8,
+          "pass": 8,
+          "fail": 0,
+          "scored_cases": 8,
+          "proxy_cases": 0,
+          "pass_rate": 1.0,
+          "coverage": 1.0
+        },
+        "concision": {
+          "cases": 24,
+          "pass": 23,
+          "fail": 1,
+          "scored_cases": 24,
+          "proxy_cases": 0,
+          "pass_rate": 0.9583,
+          "coverage": 1.0
+        },
+        "verifier_pass_rate": {
+          "cases": 8,
+          "pass": 7,
+          "fail": 1,
+          "scored_cases": 8,
+          "proxy_cases": 0,
+          "pass_rate": 0.875,
+          "coverage": 1.0
+        },
+        "citation_faithfulness": {
+          "cases": 8,
+          "pass": 8,
+          "fail": 0,
+          "scored_cases": 8,
+          "proxy_cases": 0,
+          "pass_rate": 1.0,
+          "coverage": 1.0
+        }
+      }
+    },
+    "dimension_proxies": {
+      "source": "bucket-to-dimension proxy from case-level pass/fail",
+      "values": {
+        "correctness": {
+          "cases": 40,
+          "pass": 35,
+          "fail": 5,
+          "pass_rate": 0.875
+        },
+        "groundedness": {
+          "cases": 8,
+          "pass": 8,
+          "fail": 0,
+          "pass_rate": 1.0
+        },
+        "concision": {
+          "cases": 24,
+          "pass": 20,
+          "fail": 4,
+          "pass_rate": 0.8333
+        },
+        "verifier_pass_rate": {
+          "cases": 8,
+          "pass": 6,
+          "fail": 2,
+          "pass_rate": 0.75
+        },
+        "citation_faithfulness": {
+          "cases": 8,
+          "pass": 8,
+          "fail": 0,
+          "pass_rate": 1.0
+        }
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "coding-fix-001",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2465,
+      "usage": {
+        "prompt_tokens": 43,
+        "total_tokens": 57,
+        "completion_tokens": 14,
+        "prompt_tokens_details": null
+      },
+      "content": "value = total / count if count != 0 else 0"
+    },
+    {
+      "id": "coding-fix-002",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1189,
+      "usage": {
+        "prompt_tokens": 42,
+        "total_tokens": 49,
+        "completion_tokens": 7,
+        "prompt_tokens_details": null
+      },
+      "content": "const name = user?.name"
+    },
+    {
+      "id": "coding-fix-003",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1298,
+      "usage": {
+        "prompt_tokens": 42,
+        "total_tokens": 50,
+        "completion_tokens": 8,
+        "prompt_tokens_details": null
+      },
+      "content": "email = payload.get('email')"
+    },
+    {
+      "id": "coding-fix-004",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.3024,
+      "usage": {
+        "prompt_tokens": 54,
+        "total_tokens": 76,
+        "completion_tokens": 22,
+        "prompt_tokens_details": null
+      },
+      "content": "curl -f http://127.0.0.1:8004/health"
+    },
+    {
+      "id": "coding-fix-005",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2332,
+      "usage": {
+        "prompt_tokens": 41,
+        "total_tokens": 57,
+        "completion_tokens": 16,
+        "prompt_tokens_details": null
+      },
+      "content": "ratio = success / total if total != 0 else 0.0"
+    },
+    {
+      "id": "coding-fix-006",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2163,
+      "usage": {
+        "prompt_tokens": 49,
+        "total_tokens": 64,
+        "completion_tokens": 15,
+        "prompt_tokens_details": null
+      },
+      "content": "timeout_ms = int(env.get('TIMEOUT_MS', 0))"
+    },
+    {
+      "id": "coding-fix-007",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2327,
+      "usage": {
+        "prompt_tokens": 51,
+        "total_tokens": 67,
+        "completion_tokens": 16,
+        "prompt_tokens_details": null
+      },
+      "content": "const items = payload?.items?.map((x) => x.id)"
+    },
+    {
+      "id": "coding-fix-008",
+      "bucket": "coding-fix",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1668,
+      "usage": {
+        "prompt_tokens": 49,
+        "total_tokens": 60,
+        "completion_tokens": 11,
+        "prompt_tokens_details": null
+      },
+      "content": "host = config.get('host', '').strip()"
+    },
+    {
+      "id": "code-understanding-001",
+      "bucket": "code-understanding",
+      "ok": false,
+      "failed_checks": [
+        "exact != [4, 8]"
+      ],
+      "failed_dimensions": [
+        "correctness"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "exact != [4, 8]"
+          ]
+        }
+      },
+      "latency_s": 0.0912,
+      "usage": {
+        "prompt_tokens": 67,
+        "total_tokens": 71,
+        "completion_tokens": 4,
+        "prompt_tokens_details": null
+      },
+      "content": "[8]"
+    },
+    {
+      "id": "code-understanding-002",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1558,
+      "usage": {
+        "prompt_tokens": 53,
+        "total_tokens": 63,
+        "completion_tokens": 10,
+        "prompt_tokens_details": null
+      },
+      "content": "[2, 3, 4]"
+    },
+    {
+      "id": "code-understanding-003",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.08,
+      "usage": {
+        "prompt_tokens": 36,
+        "total_tokens": 40,
+        "completion_tokens": 4,
+        "prompt_tokens_details": null
+      },
+      "content": "'ABC'"
+    },
+    {
+      "id": "code-understanding-004",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.0572,
+      "usage": {
+        "prompt_tokens": 61,
+        "total_tokens": 63,
+        "completion_tokens": 2,
+        "prompt_tokens_details": null
+      },
+      "content": "5"
+    },
+    {
+      "id": "code-understanding-005",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.0618,
+      "usage": {
+        "prompt_tokens": 50,
+        "total_tokens": 52,
+        "completion_tokens": 2,
+        "prompt_tokens_details": null
+      },
+      "content": "9"
+    },
+    {
+      "id": "code-understanding-006",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.0564,
+      "usage": {
+        "prompt_tokens": 36,
+        "total_tokens": 38,
+        "completion_tokens": 2,
+        "prompt_tokens_details": null
+      },
+      "content": "6"
+    },
+    {
+      "id": "code-understanding-007",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.0616,
+      "usage": {
+        "prompt_tokens": 40,
+        "total_tokens": 42,
+        "completion_tokens": 2,
+        "prompt_tokens_details": null
+      },
+      "content": "true"
+    },
+    {
+      "id": "code-understanding-008",
+      "bucket": "code-understanding",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.0573,
+      "usage": {
+        "prompt_tokens": 44,
+        "total_tokens": 46,
+        "completion_tokens": 2,
+        "prompt_tokens_details": null
+      },
+      "content": "1"
+    },
+    {
+      "id": "grounded-docs-001",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.3603,
+      "usage": {
+        "prompt_tokens": 81,
+        "total_tokens": 107,
+        "completion_tokens": 26,
+        "prompt_tokens_details": null
+      },
+      "content": "The documentation states that the API does not retry on 4xx errors, which includes HTTP 429 [B]."
+    },
+    {
+      "id": "grounded-docs-002",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1921,
+      "usage": {
+        "prompt_tokens": 56,
+        "total_tokens": 69,
+        "completion_tokens": 13,
+        "prompt_tokens_details": null
+      },
+      "content": "The default cache TTL is 60 seconds [A]."
+    },
+    {
+      "id": "grounded-docs-003",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2289,
+      "usage": {
+        "prompt_tokens": 66,
+        "total_tokens": 81,
+        "completion_tokens": 15,
+        "prompt_tokens_details": null
+      },
+      "content": "The local UI runs on port 8010 [B]."
+    },
+    {
+      "id": "grounded-docs-004",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2532,
+      "usage": {
+        "prompt_tokens": 76,
+        "total_tokens": 93,
+        "completion_tokens": 17,
+        "prompt_tokens_details": null
+      },
+      "content": "Port 8101 maps to GPU1 based on fact [B]."
+    },
+    {
+      "id": "grounded-docs-005",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2776,
+      "usage": {
+        "prompt_tokens": 72,
+        "total_tokens": 91,
+        "completion_tokens": 19,
+        "prompt_tokens_details": null
+      },
+      "content": "The non-thinking alias is qwen3.5-4b-no-thinking [B]."
+    },
+    {
+      "id": "grounded-docs-006",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1797,
+      "usage": {
+        "prompt_tokens": 60,
+        "total_tokens": 72,
+        "completion_tokens": 12,
+        "prompt_tokens_details": null
+      },
+      "content": "The health-check timeout is 5 seconds [B]."
+    },
+    {
+      "id": "grounded-docs-007",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.1787,
+      "usage": {
+        "prompt_tokens": 63,
+        "total_tokens": 75,
+        "completion_tokens": 12,
+        "prompt_tokens_details": null
+      },
+      "content": "Requests larger than 2 MB are rejected [A]."
+    },
+    {
+      "id": "grounded-docs-008",
+      "bucket": "grounded-docs-qa",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "groundedness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "citation_faithfulness": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.2157,
+      "usage": {
+        "prompt_tokens": 80,
+        "total_tokens": 94,
+        "completion_tokens": 14,
+        "prompt_tokens_details": null
+      },
+      "content": "GPU2 replica uses port 8102 [C]."
+    },
+    {
+      "id": "research-synthesis-001",
+      "bucket": "research-synthesis",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.4731,
+      "usage": {
+        "prompt_tokens": 76,
+        "total_tokens": 111,
+        "completion_tokens": 35,
+        "prompt_tokens_details": null
+      },
+      "content": "A: Prioritizes rapid deployment but risks performance bottlenecks as demand grows.\nB: Accepts an initial delay to achieve superior long-term scalability and stability."
+    },
+    {
+      "id": "research-synthesis-002",
+      "bucket": "research-synthesis",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.6491,
+      "usage": {
+        "prompt_tokens": 44,
+        "total_tokens": 94,
+        "completion_tokens": 50,
+        "prompt_tokens_details": null
+      },
+      "content": "Polling: The client repeatedly checks the server for updates at fixed intervals, consuming more resources and introducing latency.\nWebhook: The server pushes real-time notifications to the client only when specific events occur, ensuring lower latency and reduced resource usage."
+    },
+    {
+      "id": "research-synthesis-003",
+      "bucket": "research-synthesis",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.5181,
+      "usage": {
+        "prompt_tokens": 45,
+        "total_tokens": 84,
+        "completion_tokens": 39,
+        "prompt_tokens_details": null
+      },
+      "content": "Pro: Local cache drastically reduces latency and bandwidth usage by serving data from nearby storage.\nCon: It risks data inconsistency and wastes space if the cached content becomes stale or is rarely accessed."
+    },
+    {
+      "id": "research-synthesis-004",
+      "bucket": "research-synthesis",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.6487,
+      "usage": {
+        "prompt_tokens": 47,
+        "total_tokens": 97,
+        "completion_tokens": 50,
+        "prompt_tokens_details": null
+      },
+      "content": "SQLite: A lightweight, file-based database ideal for small backends due to its zero-configuration setup and simplicity.\nPostgreSQL: A robust, server-based system offering advanced features like complex queries and concurrency, but requiring more setup and maintenance."
+    },
+    {
+      "id": "research-synthesis-005",
+      "bucket": "research-synthesis",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.6127,
+      "usage": {
+        "prompt_tokens": 52,
+        "total_tokens": 99,
+        "completion_tokens": 47,
+        "prompt_tokens_details": null
+      },
+      "content": "Long context: Enables processing of massive documents but often sacrifices precision and requires more computational resources.\nRetrieval: Delivers high accuracy on specific queries with lower latency but struggles to handle complex, multi-hop reasoning across vast datasets."
+    },
+    {
+      "id": "research-synthesis-006",
+      "bucket": "research-synthesis",
+      "ok": false,
+      "failed_checks": [
+        "regex:^Monolith:(?=[^\\n]*(simple|simpler|single deploy))(?=[^\\n]*(coupled|scale|team bottleneck))[^\\n]*\\n+Microservices:(?=[^\\n]*(independent|separate|service))(?=[^\\n]*(complex|ops|network|coordination))[^\\n]*$"
+      ],
+      "failed_dimensions": [
+        "correctness"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "regex:^Monolith:(?=[^\\n]*(simple|simpler|single deploy))(?=[^\\n]*(coupled|scale|team bottleneck))[^\\n]*\\n+Microservices:(?=[^\\n]*(independent|separate|service))(?=[^\\n]*(complex|ops|network|coordination))[^\\n]*$"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.5428,
+      "usage": {
+        "prompt_tokens": 47,
+        "total_tokens": 88,
+        "completion_tokens": 41,
+        "prompt_tokens_details": null
+      },
+      "content": "Monolith: A single, tightly coupled application where all components share a common codebase and database.\nMicroservices: A collection of loosely coupled, independently deployable services that communicate over a network."
+    },
+    {
+      "id": "research-synthesis-007",
+      "bucket": "research-synthesis",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.5762,
+      "usage": {
+        "prompt_tokens": 45,
+        "total_tokens": 89,
+        "completion_tokens": 44,
+        "prompt_tokens_details": null
+      },
+      "content": "Eager: Data is fetched immediately when the parent object is loaded, reducing the number of database queries.\nLazy: Data is fetched only when the child object is explicitly accessed, potentially increasing the number of queries."
+    },
+    {
+      "id": "research-synthesis-008",
+      "bucket": "research-synthesis",
+      "ok": false,
+      "failed_checks": [
+        "regex:^REST:(?=[^\\n]*(simple|cache|endpoint))(?=[^\\n]*(over|under-fetch|multiple requests|rigid))[^\\n]*\\n+GraphQL:(?=[^\\n]*(flexible|query|single endpoint))(?=[^\\n]*(complex|schema|resolver))[^\\n]*$"
+      ],
+      "failed_dimensions": [
+        "correctness"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "regex:^REST:(?=[^\\n]*(simple|cache|endpoint))(?=[^\\n]*(over|under-fetch|multiple requests|rigid))[^\\n]*\\n+GraphQL:(?=[^\\n]*(flexible|query|single endpoint))(?=[^\\n]*(complex|schema|resolver))[^\\n]*$"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.6425,
+      "usage": {
+        "prompt_tokens": 42,
+        "total_tokens": 91,
+        "completion_tokens": 49,
+        "prompt_tokens_details": null
+      },
+      "content": "REST: Uses fixed endpoints to return predefined data structures, often leading to over-fetching or under-fetching.\nGraphQL: Employs a single endpoint where clients request exactly the data they need, allowing for flexible querying and reduced network traffic."
+    },
+    {
+      "id": "plan-repair-001",
+      "bucket": "plan-repair",
+      "ok": false,
+      "failed_checks": [],
+      "failed_dimensions": [
+        "verifier_pass_rate"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": false,
+          "failed_checks": [
+            "regex:(?i)^1\\..*\\n2\\..*\\n3\\..*((verify|validate|check|test|probe|monitor).*(health|service|api|endpoint|traffic|request|requests|readiness)|((health|service|api|endpoint|traffic|request|requests|readiness).*(verify|validate|check|test|probe|monitor))|smoke test).*$"
+          ]
+        }
+      },
+      "latency_s": 0.7741,
+      "usage": {
+        "prompt_tokens": 53,
+        "total_tokens": 113,
+        "completion_tokens": 60,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Immediately rollback the deployment to the last stable version to restore database integrity.\n2. Identify the missing migration script, apply it manually to the production database, and verify schema consistency.\n3. Redeploy the application with the migration included in the release pipeline to prevent future occurrences."
+    },
+    {
+      "id": "plan-repair-002",
+      "bucket": "plan-repair",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.8217,
+      "usage": {
+        "prompt_tokens": 51,
+        "total_tokens": 115,
+        "completion_tokens": 64,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Identify the incorrect upstream port configuration in your load balancer or proxy settings.\n2. Update the target port to match the actual service listening address on the backend server.\n3. Verify the connection by pinging the new port and testing the endpoint to confirm the 502 error is resolved."
+    },
+    {
+      "id": "plan-repair-003",
+      "bucket": "plan-repair",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.8882,
+      "usage": {
+        "prompt_tokens": 46,
+        "total_tokens": 115,
+        "completion_tokens": 69,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Analyze the slow query execution plan to identify bottlenecks like missing indexes or inefficient joins.\n2. Optimize the query by adding appropriate indexes, rewriting logic, or breaking it into smaller, parallelizable parts.\n3. Implement caching strategies for frequently accessed data and set up automated query performance monitoring to prevent future timeouts."
+    },
+    {
+      "id": "plan-repair-004",
+      "bucket": "plan-repair",
+      "ok": false,
+      "failed_checks": [
+        "too_many_words:54>44",
+        "missing_unordered_line_match:(?i)(restore|reissue|retry|rerun|create|provide|regenerate)"
+      ],
+      "failed_dimensions": [
+        "correctness",
+        "concision"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(restore|reissue|retry|rerun|create|provide|regenerate)"
+          ]
+        },
+        "concision": {
+          "ok": false,
+          "failed_checks": [
+            "too_many_words:54>44"
+          ]
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.8476,
+      "usage": {
+        "prompt_tokens": 47,
+        "total_tokens": 113,
+        "completion_tokens": 66,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Verify the file path and ensure the input file has been generated by the preceding job.\n2. Check the batch job's error log for specific missing file indicators and confirm file permissions.\n3. Add a pre-check step to the job script that halts execution and alerts the operator if the file is absent."
+    },
+    {
+      "id": "plan-repair-005",
+      "bucket": "plan-repair",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.875,
+      "usage": {
+        "prompt_tokens": 53,
+        "total_tokens": 121,
+        "completion_tokens": 68,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Immediately roll back the deployment to the previous stable version to restore service.\n2. Enable detailed error logging and reproduce the issue in a staging environment to identify the specific JavaScript failure.\n3. Fix the code causing the crash, run comprehensive tests, and redeploy with a canary release strategy to prevent future outages."
+    },
+    {
+      "id": "plan-repair-006",
+      "bucket": "plan-repair",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.6256,
+      "usage": {
+        "prompt_tokens": 46,
+        "total_tokens": 94,
+        "completion_tokens": 48,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Immediately identify and delete unnecessary files or logs to free up disk space.\n2. Restart the affected service to restore functionality once sufficient space is available.\n3. Implement automated log rotation and monitoring to prevent future disk exhaustion."
+    },
+    {
+      "id": "plan-repair-007",
+      "bucket": "plan-repair",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.7604,
+      "usage": {
+        "prompt_tokens": 45,
+        "total_tokens": 104,
+        "completion_tokens": 59,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Immediately generate a new TLS certificate using the current private key and valid domain information.\n2. Upload the new certificate to the server or load balancer and restart the web service to apply changes.\n3. Verify connectivity and monitor logs to ensure traffic flows securely without further interruptions."
+    },
+    {
+      "id": "plan-repair-008",
+      "bucket": "plan-repair",
+      "ok": true,
+      "failed_checks": [],
+      "failed_dimensions": [],
+      "dimension_results": {
+        "correctness": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.6391,
+      "usage": {
+        "prompt_tokens": 48,
+        "total_tokens": 97,
+        "completion_tokens": 49,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Identify the missing environment variable in the CI pipeline configuration file.\n2. Add the variable definition to the deployment script or secrets manager with the correct value.\n3. Re-run the pipeline to verify the deployment succeeds without errors."
+    }
+  ]
+}

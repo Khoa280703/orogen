@@ -1,0 +1,24 @@
+{
+  "format": "qwen35-agent-style-scorecard-v1",
+  "dimensions": [
+    "correctness",
+    "groundedness",
+    "concision",
+    "verifier_pass_rate",
+    "citation_faithfulness"
+  ],
+  "bucket_dimensions": {
+    "coding-fix": ["correctness", "concision"],
+    "code-understanding": ["correctness"],
+    "grounded-docs-qa": ["correctness", "groundedness", "citation_faithfulness"],
+    "research-synthesis": ["correctness", "concision"],
+    "plan-repair": ["correctness", "concision", "verifier_pass_rate"]
+  },
+  "notes": [
+    "dimension_scores is driven by case-level dimension_checks for this suite; validation now requires every mapped dimension to be annotated on every case",
+    "dimension_proxies is retained for backward comparison with older snapshots",
+    "coding-fix and code-understanding are mostly correctness-heavy",
+    "grounded-docs-qa emphasizes groundedness and citation_faithfulness",
+    "research-synthesis and plan-repair emphasize correctness and concision"
+  ]
+}

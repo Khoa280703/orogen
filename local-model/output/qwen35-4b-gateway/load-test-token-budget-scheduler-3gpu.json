@@ -1,0 +1,134 @@
+{
+  "base_url": "http://127.0.0.1:8004",
+  "model": "qwen3.5-4b",
+  "started_at": 1776178718.106245,
+  "scenarios": [
+    {
+      "scenario": "16k_x48",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 48,
+      "actual_prompt_tokens_min": 16377,
+      "actual_prompt_tokens_max": 16384,
+      "aggregate_target_tokens": 786369,
+      "requests": 48,
+      "success": 28,
+      "fail": 20,
+      "success_rate": 0.5833333333333334,
+      "wall_time_s": 34.54499735683203,
+      "req_per_s": 1.3894920733148342,
+      "avg_latency_s": 34.04795170565402,
+      "p50_latency_s": 34.02580650651362,
+      "p95_latency_s": 34.51771326074377,
+      "peak_queue_size": 0,
+      "samples_count": 18,
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 320000
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 14,
+          "peak_reserved_tokens": 229348,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 14,
+          "peak_reserved_tokens": 229355,
+          "budget": 400000
+        }
+      },
+      "errors": [
+        "ConnectionResetError",
+        "HTTP 500",
+        "HTTP 500",
+        "HTTP 500",
+        "HTTP 500"
+      ],
+      "details": [
+        "[Errno 104] Connection reset by peer",
+        "{\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}",
+        "{\"error\":{\"message\":\"EngineCore encountered an issue. See stack trace (above) for the root cause.\",\"type\":\"InternalServerError\",\"param\":null,\"code\":500}}"
+      ]
+    },
+    {
+      "scenario": "64k_x16",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 16,
+      "actual_prompt_tokens_min": 65525,
+      "actual_prompt_tokens_max": 65534,
+      "aggregate_target_tokens": 1048463,
+      "requests": 16,
+      "success": 16,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 110.32672040397301,
+      "req_per_s": 0.14502379787429825,
+      "avg_latency_s": 97.21209420442756,
+      "p50_latency_s": 103.2703060345957,
+      "p95_latency_s": 110.31190676288679,
+      "peak_queue_size": 4,
+      "samples_count": 56,
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 320000
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393186,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393168,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x9",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 9,
+      "actual_prompt_tokens_min": 126993,
+      "actual_prompt_tokens_max": 126993,
+      "aggregate_target_tokens": 1142937,
+      "requests": 9,
+      "success": 9,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 175.07685710396618,
+      "req_per_s": 0.05140599476637575,
+      "avg_latency_s": 135.6605594705066,
+      "p50_latency_s": 141.82686414197087,
+      "p95_latency_s": 175.0680232201703,
+      "peak_queue_size": 3,
+      "samples_count": 88,
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 0,
+          "peak_reserved_tokens": 0,
+          "budget": 320000
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380979,
+          "budget": 400000
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380979,
+          "budget": 400000
+        }
+      },
+      "errors": [],
+      "details": []
+    }
+  ]
+}

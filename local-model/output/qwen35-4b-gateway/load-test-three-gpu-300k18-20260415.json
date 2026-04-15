@@ -1,0 +1,527 @@
+{
+  "base_url": "http://127.0.0.1:8004",
+  "model": "qwen3.5-4b",
+  "started_at": 1776217105.8671331,
+  "health_before": {
+    "ok": true,
+    "model": "qwen3.5-4b",
+    "healthy_upstreams": [
+      "http://127.0.0.1:8100",
+      "http://127.0.0.1:8101",
+      "http://127.0.0.1:8102"
+    ],
+    "queue_size": 0,
+    "max_input_tokens": 128000,
+    "max_total_tokens": 131072,
+    "upstreams": {
+      "http://127.0.0.1:8100": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 300000,
+        "max_live_requests": 18,
+        "remaining_tokens": 300000
+      },
+      "http://127.0.0.1:8101": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "max_live_requests": 24,
+        "remaining_tokens": 400000
+      },
+      "http://127.0.0.1:8102": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "max_live_requests": 24,
+        "remaining_tokens": 400000
+      }
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "16k_x48",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 48,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 785102,
+      "requests": 48,
+      "success": 45,
+      "fail": 3,
+      "success_rate": 0.9375,
+      "wall_time_s": 41.474812855012715,
+      "req_per_s": 1.1573289111104124,
+      "avg_latency_s": 37.17046127842429,
+      "p50_latency_s": 40.68210999388248,
+      "p95_latency_s": 41.38176318714395,
+      "peak_queue_size": 0,
+      "samples_count": 42,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 11,
+        "http://127.0.0.1:8102": 17,
+        "http://127.0.0.1:8101": 17
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 11,
+          "peak_reserved_tokens": 179905,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 17,
+          "peak_reserved_tokens": 278073,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 17,
+          "peak_reserved_tokens": 278062,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [
+        "ConnectionResetError",
+        "ConnectionResetError",
+        "ConnectionResetError"
+      ],
+      "details": [
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer"
+      ]
+    },
+    {
+      "scenario": "16k_x56",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 56,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 915934,
+      "requests": 56,
+      "success": 52,
+      "fail": 4,
+      "success_rate": 0.9285714285714286,
+      "wall_time_s": 48.62741189193912,
+      "req_per_s": 1.1516138289334503,
+      "avg_latency_s": 43.25739747460018,
+      "p50_latency_s": 47.07701472193003,
+      "p95_latency_s": 48.545953778293914,
+      "peak_queue_size": 0,
+      "samples_count": 49,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 13,
+        "http://127.0.0.1:8101": 19,
+        "http://127.0.0.1:8102": 20
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 13,
+          "peak_reserved_tokens": 212624,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 19,
+          "peak_reserved_tokens": 310781,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 20,
+          "peak_reserved_tokens": 327113,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [
+        "ConnectionResetError",
+        "ConnectionResetError",
+        "ConnectionResetError",
+        "ConnectionResetError"
+      ],
+      "details": [
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer"
+      ]
+    },
+    {
+      "scenario": "16k_x64",
+      "target_tokens_nominal": 16384,
+      "max_tokens": 128,
+      "concurrency": 64,
+      "actual_prompt_tokens_min": 16354,
+      "actual_prompt_tokens_max": 16365,
+      "aggregate_target_tokens": 1046766,
+      "requests": 64,
+      "success": 61,
+      "fail": 3,
+      "success_rate": 0.953125,
+      "wall_time_s": 62.001227867091075,
+      "req_per_s": 1.0322376217644205,
+      "avg_latency_s": 52.32047438294413,
+      "p50_latency_s": 55.03388097998686,
+      "p95_latency_s": 60.81039882497862,
+      "peak_queue_size": 0,
+      "samples_count": 62,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 16,
+        "http://127.0.0.1:8101": 22,
+        "http://127.0.0.1:8102": 23
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 16,
+          "peak_reserved_tokens": 261686,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 22,
+          "peak_reserved_tokens": 359854,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 23,
+          "peak_reserved_tokens": 376164,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [
+        "ConnectionResetError",
+        "ConnectionResetError",
+        "ConnectionResetError"
+      ],
+      "details": [
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer",
+        "[Errno 104] Connection reset by peer"
+      ]
+    },
+    {
+      "scenario": "64k_x16",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 16,
+      "actual_prompt_tokens_min": 65515,
+      "actual_prompt_tokens_max": 65522,
+      "aggregate_target_tokens": 1048310,
+      "requests": 16,
+      "success": 16,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 83.31528304005042,
+      "req_per_s": 0.1920415968857557,
+      "avg_latency_s": 74.75970124038577,
+      "p50_latency_s": 82.73463431652635,
+      "p95_latency_s": 83.25197986874264,
+      "peak_queue_size": 0,
+      "samples_count": 84,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 4,
+        "http://127.0.0.1:8102": 6,
+        "http://127.0.0.1:8101": 6
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 4,
+          "peak_reserved_tokens": 262088,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393111,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393111,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "64k_x18",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 18,
+      "actual_prompt_tokens_min": 65515,
+      "actual_prompt_tokens_max": 65522,
+      "aggregate_target_tokens": 1179340,
+      "requests": 18,
+      "success": 18,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 84.11573345307261,
+      "req_per_s": 0.21399088209867462,
+      "avg_latency_s": 76.45667148032226,
+      "p50_latency_s": 81.3578936465783,
+      "p95_latency_s": 84.00769999022594,
+      "peak_queue_size": 2,
+      "samples_count": 84,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 6,
+        "http://127.0.0.1:8102": 6,
+        "http://127.0.0.1:8101": 6
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 4,
+          "peak_reserved_tokens": 262074,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393125,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393111,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "64k_x20",
+      "target_tokens_nominal": 65536,
+      "max_tokens": 128,
+      "concurrency": 20,
+      "actual_prompt_tokens_min": 65515,
+      "actual_prompt_tokens_max": 65522,
+      "aggregate_target_tokens": 1310370,
+      "requests": 20,
+      "success": 20,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 100.18395324493758,
+      "req_per_s": 0.19963276904338595,
+      "avg_latency_s": 82.07787294596201,
+      "p50_latency_s": 83.59269091160968,
+      "p95_latency_s": 100.04834183541826,
+      "peak_queue_size": 4,
+      "samples_count": 101,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 8,
+        "http://127.0.0.1:8101": 6,
+        "http://127.0.0.1:8102": 6
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 4,
+          "peak_reserved_tokens": 262081,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393111,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 6,
+          "peak_reserved_tokens": 393118,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x8",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 8,
+      "actual_prompt_tokens_min": 126981,
+      "actual_prompt_tokens_max": 126981,
+      "aggregate_target_tokens": 1015848,
+      "requests": 8,
+      "success": 8,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 109.7154288769234,
+      "req_per_s": 0.07291590692293827,
+      "avg_latency_s": 97.27008096838836,
+      "p50_latency_s": 106.79969189851545,
+      "p95_latency_s": 109.61064440368209,
+      "peak_queue_size": 0,
+      "samples_count": 110,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 2,
+        "http://127.0.0.1:8102": 3,
+        "http://127.0.0.1:8101": 3
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 2,
+          "peak_reserved_tokens": 253962,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380943,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380943,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x10",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 10,
+      "actual_prompt_tokens_min": 126962,
+      "actual_prompt_tokens_max": 126962,
+      "aggregate_target_tokens": 1269620,
+      "requests": 10,
+      "success": 10,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 128.07294753193855,
+      "req_per_s": 0.07808050171958619,
+      "avg_latency_s": 104.04342782311141,
+      "p50_latency_s": 108.56004557944834,
+      "p95_latency_s": 127.94489290002966,
+      "peak_queue_size": 2,
+      "samples_count": 128,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 4,
+        "http://127.0.0.1:8102": 3,
+        "http://127.0.0.1:8101": 3
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 2,
+          "peak_reserved_tokens": 253924,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380886,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380886,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [],
+      "details": []
+    },
+    {
+      "scenario": "127k_x12",
+      "target_tokens_nominal": 127000,
+      "max_tokens": 128,
+      "concurrency": 12,
+      "actual_prompt_tokens_min": 126962,
+      "actual_prompt_tokens_max": 126985,
+      "aggregate_target_tokens": 1523590,
+      "requests": 12,
+      "success": 12,
+      "fail": 0,
+      "success_rate": 1.0,
+      "wall_time_s": 147.06239290395752,
+      "req_per_s": 0.0815980194735229,
+      "avg_latency_s": 118.55456617998425,
+      "p50_latency_s": 122.53731923247688,
+      "p95_latency_s": 146.8433512969292,
+      "peak_queue_size": 4,
+      "samples_count": 147,
+      "upstream_counts": {
+        "http://127.0.0.1:8100": 4,
+        "http://127.0.0.1:8101": 4,
+        "http://127.0.0.1:8102": 4
+      },
+      "upstreams": {
+        "http://127.0.0.1:8100": {
+          "peak_inflight": 2,
+          "peak_reserved_tokens": 253947,
+          "budget": 300000,
+          "max_live_requests": 18
+        },
+        "http://127.0.0.1:8101": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380886,
+          "budget": 400000,
+          "max_live_requests": 24
+        },
+        "http://127.0.0.1:8102": {
+          "peak_inflight": 3,
+          "peak_reserved_tokens": 380909,
+          "budget": 400000,
+          "max_live_requests": 24
+        }
+      },
+      "errors": [],
+      "details": []
+    }
+  ],
+  "finished_at": 1776218094.6973891,
+  "health_after": {
+    "ok": true,
+    "model": "qwen3.5-4b",
+    "healthy_upstreams": [
+      "http://127.0.0.1:8100",
+      "http://127.0.0.1:8101",
+      "http://127.0.0.1:8102"
+    ],
+    "queue_size": 0,
+    "max_input_tokens": 128000,
+    "max_total_tokens": 131072,
+    "upstreams": {
+      "http://127.0.0.1:8100": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 300000,
+        "max_live_requests": 18,
+        "remaining_tokens": 300000
+      },
+      "http://127.0.0.1:8101": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "max_live_requests": 24,
+        "remaining_tokens": 400000
+      },
+      "http://127.0.0.1:8102": {
+        "inflight": 0,
+        "reserved_tokens": 0,
+        "token_budget": 400000,
+        "max_live_requests": 24,
+        "remaining_tokens": 400000
+      }
+    }
+  }
+}

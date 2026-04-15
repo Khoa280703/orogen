@@ -1,0 +1,113 @@
+{
+  "prompt_tokens": [
+    8182,
+    8182
+  ],
+  "wall_time_s": 3.852978738024831,
+  "results": [
+    {
+      "latency_s": 2.038558396976441,
+      "usage": {
+        "prompt_tokens": 8184,
+        "total_tokens": 8248,
+        "completion_tokens": 64,
+        "prompt_tokens_details": null
+      }
+    },
+    {
+      "latency_s": 3.8514716781210154,
+      "usage": {
+        "prompt_tokens": 8184,
+        "total_tokens": 8246,
+        "completion_tokens": 62,
+        "prompt_tokens_details": null
+      }
+    }
+  ],
+  "samples": [
+    {
+      "ts": 1776177974.2934237,
+      "health": {
+        "ok": true,
+        "model": "qwen3.5-4b",
+        "healthy_upstreams": [
+          "http://127.0.0.1:8102"
+        ],
+        "queue_size": 0,
+        "max_input_tokens": 128000,
+        "max_total_tokens": 131072,
+        "upstreams": {
+          "http://127.0.0.1:8102": {
+            "inflight": 0,
+            "reserved_tokens": 0,
+            "token_budget": 10000,
+            "remaining_tokens": 10000
+          }
+        }
+      }
+    },
+    {
+      "ts": 1776177975.2952156,
+      "health": {
+        "ok": true,
+        "model": "qwen3.5-4b",
+        "healthy_upstreams": [
+          "http://127.0.0.1:8102"
+        ],
+        "queue_size": 1,
+        "max_input_tokens": 128000,
+        "max_total_tokens": 131072,
+        "upstreams": {
+          "http://127.0.0.1:8102": {
+            "inflight": 1,
+            "reserved_tokens": 8182,
+            "token_budget": 10000,
+            "remaining_tokens": 1818
+          }
+        }
+      }
+    },
+    {
+      "ts": 1776177976.2962651,
+      "health": {
+        "ok": true,
+        "model": "qwen3.5-4b",
+        "healthy_upstreams": [
+          "http://127.0.0.1:8102"
+        ],
+        "queue_size": 1,
+        "max_input_tokens": 128000,
+        "max_total_tokens": 131072,
+        "upstreams": {
+          "http://127.0.0.1:8102": {
+            "inflight": 1,
+            "reserved_tokens": 8182,
+            "token_budget": 10000,
+            "remaining_tokens": 1818
+          }
+        }
+      }
+    },
+    {
+      "ts": 1776177977.2980456,
+      "health": {
+        "ok": true,
+        "model": "qwen3.5-4b",
+        "healthy_upstreams": [
+          "http://127.0.0.1:8102"
+        ],
+        "queue_size": 0,
+        "max_input_tokens": 128000,
+        "max_total_tokens": 131072,
+        "upstreams": {
+          "http://127.0.0.1:8102": {
+            "inflight": 1,
+            "reserved_tokens": 8182,
+            "token_budget": 10000,
+            "remaining_tokens": 1818
+          }
+        }
+      }
+    }
+  ]
+}

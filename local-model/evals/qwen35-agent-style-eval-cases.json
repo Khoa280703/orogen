@@ -1,0 +1,26 @@
+{
+  "format": "qwen35-agent-style-eval-manifest-v1",
+  "scorecard_path": "agent-style-eval/scorecard-schema.json",
+  "buckets": [
+    {
+      "bucket": "coding-fix",
+      "path": "agent-style-eval/coding-fix.jsonl"
+    },
+    {
+      "bucket": "code-understanding",
+      "path": "agent-style-eval/code-understanding.jsonl"
+    },
+    {
+      "bucket": "grounded-docs-qa",
+      "path": "agent-style-eval/grounded-docs-qa.jsonl"
+    },
+    {
+      "bucket": "research-synthesis",
+      "path": "agent-style-eval/research-synthesis.jsonl"
+    },
+    {
+      "bucket": "plan-repair",
+      "path": "agent-style-eval/plan-repair.jsonl"
+    }
+  ]
+}
