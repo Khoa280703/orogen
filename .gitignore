@@ -19,3 +19,8 @@ local-model/.cache/
 local-model/.venv-qwen35-vllm/
 local-model/models/
 .env
+.env.*
+!.env.example
+.envrc
+.direnv/
+web/.git/
