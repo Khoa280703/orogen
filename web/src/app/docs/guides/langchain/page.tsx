@@ -6,7 +6,7 @@ export default function LangchainGuide() {
       <div>
         <h1 className="text-4xl font-bold mb-4">LangChain Integration</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Use LangChain with the platform's basic OpenAI-style chat completions endpoint.
+          Use LangChain with the platform&apos;s basic OpenAI-style chat completions endpoint.
         </p>
       </div>
 
@@ -26,9 +26,9 @@ export default function LangchainGuide() {
             '',
             '# Initialize the model',
             'llm = ChatOpenAI(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    openai_api_key="your-api-key",',
-            '    openai_api_base="https://api.example.com/v1",',
+            '    openai_api_base="https://your-duanai-domain.com/v1",',
             '    temperature=0.7',
             ')',
             '',
@@ -54,9 +54,9 @@ export default function LangchainGuide() {
             '',
             '# Create the chain',
             'llm = ChatOpenAI(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    openai_api_key="your-api-key",',
-            '    openai_api_base="https://api.example.com/v1"',
+            '    openai_api_base="https://your-duanai-domain.com/v1"',
             ')',
             '',
             'prompt = ChatPromptTemplate.from_messages([',
@@ -88,9 +88,9 @@ export default function LangchainGuide() {
             '',
             '# Your documents',
             'texts = [',
-            '    "The Grok API provides access to advanced AI models.",',
+            '    "The gateway exposes a stable public model catalog.",',
             '    "You can use streaming for real-time responses.",',
-            '    "Multiple payment options are available including crypto."',
+            '    "Plans determine which model slugs are visible to each API key."',
             ']',
             '',
             '# Split and embed',
@@ -102,9 +102,9 @@ export default function LangchainGuide() {
             '',
             '# Create QA chain',
             'llm = ChatOpenAI(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    openai_api_key="your-api-key",',
-            '    openai_api_base="https://api.example.com/v1"',
+            '    openai_api_base="https://your-duanai-domain.com/v1"',
             ')',
             '',
             '# qa_chain = RetrievalQA.from_chain_type(',
@@ -131,9 +131,9 @@ export default function LangchainGuide() {
             '',
             '# Initialize the model',
             'llm = ChatOpenAI(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    openai_api_key="your-api-key",',
-            '    openai_api_base="https://api.example.com/v1",',
+            '    openai_api_base="https://your-duanai-domain.com/v1",',
             '    temperature=0',
             ')',
             '',

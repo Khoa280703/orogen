@@ -7,7 +7,7 @@ export default function QuickstartGuide() {
       <div>
         <h1 className="text-4xl font-bold mb-4">Quickstart Guide</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Get up and running with the Grok API in 5 minutes.
+          Get up and running with the gateway in 5 minutes.
         </p>
       </div>
 
@@ -39,24 +39,31 @@ export default function QuickstartGuide() {
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold">Step 3: Make Your First API Call</h2>
         <p className="text-slate-600 dark:text-slate-400">
-          Use curl to test the API:
+          Use curl to test the OpenAI-compatible API surface:
         </p>
         <CodeBlock language="bash" title="Test with curl">
           {[
-            'curl https://api.example.com/v1/chat/completions \\',
+            'curl https://your-duanai-domain.com/v1/chat/completions \\',
             '  -H "Authorization: Bearer your-api-key" \\',
             '  -H "Content-Type: application/json" \\',
-            '  -d \'{"model": "grok-3", "messages": [{"role": "user", "content": "Hello, world!"}]}\'',
+            '  -d \'{"model": "your-model-id", "messages": [{"role": "user", "content": "Hello, world!"}]}\'',
           ]}
         </CodeBlock>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Replace <code>your-model-id</code> with any model returned by <code>GET /v1/models</code> for your plan.
+        </p>
       </section>
 
       <section className="space-y-4">
         <h2 className="text-2xl font-semibold">Step 4: Choose Your Integration</h2>
         <p className="text-slate-600 dark:text-slate-400">
-          Follow one of our language-specific guides:
+          Pick the client profile that matches your workflow:
         </p>
-        <div className="grid md:grid-cols-2 gap-4 mt-4">
+        <div className="grid md:grid-cols-3 gap-4 mt-4">
+          <Link href="/docs/guides/codex-cli" className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-blue-500 transition-colors">
+            <h3 className="font-semibold">Codex CLI</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Use the current text-first Responses path through your own gateway endpoint</p>
+          </Link>
           <Link href="/docs/guides/python" className="border border-slate-200 dark:border-slate-800 rounded-lg p-4 hover:border-blue-500 transition-colors">
             <h3 className="font-semibold">Python</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">Use with OpenAI library</p>
@@ -79,12 +86,12 @@ export default function QuickstartGuide() {
           <li>
             <Link href="/docs/models" className="text-blue-500 hover:underline">
               Explore Models
-            </Link> - Learn about available models
+            </Link> - See how plan-visible models are exposed
           </li>
           <li>
-            <Link href="/docs/faq" className="text-blue-500 hover:underline">
-              Check the FAQ
-            </Link> - Common questions and answers
+            <Link href="/docs/guides/codex-cli" className="text-blue-500 hover:underline">
+              Configure Codex CLI
+            </Link> - Route Codex through this gateway
           </li>
         </ul>
       </section>

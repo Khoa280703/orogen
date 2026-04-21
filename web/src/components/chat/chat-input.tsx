@@ -31,10 +31,11 @@ export function ChatInput({
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const activeModel = chatModels.find((item) => item.id === selectedChatModel);
+  const noModelsAvailable = chatModels.length === 0;
 
   async function handleSubmit() {
     const trimmed = content.trim();
-    if (!trimmed || sending || disabled) return;
+    if (!trimmed || sending || disabled || !activeModel) return;
     setSending(true);
     try {
       await onSubmit(trimmed);
@@ -86,7 +87,7 @@ export function ChatInput({
                   }
                 }}
                 disabled={disabled || sending}
-                placeholder="Describe your vision..."
+                placeholder={noModelsAvailable ? "No chat models available for this account" : "Describe your vision..."}
                 className="min-h-[24px] max-h-36 min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-2 text-sm leading-6 text-white outline-none placeholder:text-[#c6c6c6]/55"
               />
             </div>
@@ -99,9 +100,9 @@ export function ChatInput({
                   onChatModelChange(value);
                 }}
               >
-                <SelectTrigger className="h-10 w-auto min-w-0 max-w-[10rem] rounded-xl border border-white/10 bg-[#141414] px-3 text-xs text-[#e2e2e2] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] hover:bg-[#1a1a1a]">
+                <SelectTrigger disabled={noModelsAvailable} className="h-10 w-auto min-w-0 max-w-[10rem] rounded-xl border border-white/10 bg-[#141414] px-3 text-xs text-[#e2e2e2] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] hover:bg-[#1a1a1a]">
                   <span className="truncate pr-0.5 font-medium text-[#f2f2f2]">
-                    {activeModel?.label || "Select model"}
+                    {activeModel?.label || "No model"}
                   </span>
                 </SelectTrigger>
                 <SelectContent
@@ -146,7 +147,7 @@ export function ChatInput({
 
               <Button
                 onClick={() => void handleSubmit()}
-                disabled={disabled || sending || !content.trim()}
+                disabled={disabled || sending || !content.trim() || !activeModel}
                 className="rounded-xl bg-white p-2.5 text-[#1a1c1c] transition-all hover:bg-[#c8c6c5] active:scale-90"
                 aria-label={
                   sending

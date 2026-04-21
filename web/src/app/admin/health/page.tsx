@@ -25,6 +25,20 @@ interface HealthOverview {
   error_rate_percent: number;
   active_users_24h: number;
   api_key_count: number;
+  provider_verification: Array<{
+    provider_slug: string;
+    provider_name: string;
+    expected_auth_mode: string | null;
+    has_chat_adapter: boolean;
+    supports_chat_streaming: boolean;
+    supports_responses_api: boolean;
+    active_account_count: number;
+    selectable_account_count: number;
+    active_public_route_count: number;
+    plan_assignment_count: number;
+    ready: boolean;
+    warnings: string[];
+  }>;
 }
 
 export default function HealthPage() {
@@ -77,7 +91,7 @@ export default function HealthPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Grok Accounts</CardTitle>
+            <CardTitle className="text-sm font-medium">Provider Accounts</CardTitle>
             <Server className="h-4 w-4 text-slate-400" />
           </CardHeader>
           <CardContent>
@@ -250,6 +264,77 @@ export default function HealthPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Provider Verification Gates</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {health?.provider_verification?.length ? health.provider_verification.map((provider) => (
+            <div key={provider.provider_slug} className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold">{provider.provider_name}</h3>
+                    <Badge variant={provider.ready ? 'default' : 'secondary'}>
+                      {provider.ready ? 'No active blockers' : 'Needs follow-up'}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-400">
+                    `{provider.provider_slug}` · expected auth: {provider.expected_auth_mode || 'n/a'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant={provider.has_chat_adapter ? 'default' : 'destructive'}>
+                    chat adapter: {provider.has_chat_adapter ? 'yes' : 'no'}
+                  </Badge>
+                  <Badge variant={provider.supports_chat_streaming ? 'default' : 'secondary'}>
+                    streaming: {provider.supports_chat_streaming ? 'yes' : 'no'}
+                  </Badge>
+                  <Badge variant={provider.supports_responses_api ? 'default' : 'secondary'}>
+                    responses: {provider.supports_responses_api ? 'yes' : 'no'}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-900">
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Selectable Accounts</div>
+                  <div className="mt-1 text-xl font-semibold">{provider.selectable_account_count}</div>
+                  <div className="mt-1 text-xs text-slate-400">{provider.active_account_count} active rows configured</div>
+                </div>
+                <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-900">
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Public Routes</div>
+                  <div className="mt-1 text-xl font-semibold">{provider.active_public_route_count}</div>
+                </div>
+                <div className="rounded-md bg-slate-50 p-3 dark:bg-slate-900">
+                  <div className="text-xs uppercase tracking-wide text-slate-400">Selling Plans</div>
+                  <div className="mt-1 text-xl font-semibold">{provider.plan_assignment_count}</div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="text-sm font-medium text-slate-500">Warnings</div>
+                {provider.warnings.length ? (
+                  <ul className="mt-2 space-y-2 text-sm text-amber-600 dark:text-amber-400">
+                    {provider.warnings.map((warning) => (
+                      <li key={warning} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/60 dark:bg-amber-950/20">
+                        {warning}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-green-600 dark:text-green-400">
+                    No provider-gate warnings for this provider.
+                  </p>
+                )}
+              </div>
+            </div>
+          )) : (
+            <div className="text-sm text-slate-500">No active providers found.</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -50,6 +50,13 @@ interface Proxy {
   assigned_accounts: number;
 }
 
+const ALLOWED_PROXY_PROTOCOLS = new Set([
+  'http:',
+  'https:',
+  'socks5:',
+  'socks5h:',
+]);
+
 export default function ProxiesPage() {
   const [proxies, setProxies] = useState<Proxy[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,22 +94,47 @@ export default function ProxiesPage() {
     }
   };
 
-  const validateUrl = (value: string): boolean => {
-    if (!value.trim()) return false;
-    if (value.length > 500) return false;
-    // Validate proxy format: host:port:user:pass
-    const proxyPattern = /^[^:]+:\d+:[^:]+:[^:]+$/;
-    return proxyPattern.test(value);
+  const validateNormalizedProxyUrl = (value: string): boolean => {
+    if (!value || value.length > 500) return false;
+
+    try {
+      const parsed = new URL(value);
+      return (
+        ALLOWED_PROXY_PROTOCOLS.has(parsed.protocol) &&
+        Boolean(parsed.hostname) &&
+        Boolean(parsed.port)
+      );
+    } catch {
+      return false;
+    }
   };
 
   const parseProxyInput = (value: string): string => {
-    // Convert host:port:user:pass to socks5h://user:pass@host:port
-    const parts = value.split(':');
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return '';
+    }
+
+    if (trimmed.includes('://')) {
+      return trimmed;
+    }
+
+    if (/^[^:]+:\d+$/.test(trimmed)) {
+      return `http://${trimmed}`;
+    }
+
+    // Convert host:port:user:pass shorthand to authenticated HTTP proxy URL.
+    const parts = trimmed.split(':');
     if (parts.length === 4) {
       const [host, port, user, pass] = parts;
-      return `socks5h://${user}:${pass}@${host}:${port}`;
+      return `http://${user}:${pass}@${host}:${port}`;
     }
-    return value;
+
+    return trimmed;
+  };
+
+  const isMaskedProxyUrl = (value: string): boolean => {
+    return value.includes(':***@');
   };
 
   const validateLabel = (value: string): boolean => {
@@ -113,9 +145,10 @@ export default function ProxiesPage() {
 
   const handleCreate = async () => {
     setError('');
+    const proxyUrl = parseProxyInput(url);
 
-    if (!validateUrl(url)) {
-      setError('Invalid proxy format. Use: host:port:user:pass (max 500 chars)');
+    if (!validateNormalizedProxyUrl(proxyUrl)) {
+      setError('Invalid proxy format. Use full URL or shorthand host:port / host:port:user:pass.');
       return;
     }
 
@@ -125,7 +158,6 @@ export default function ProxiesPage() {
     }
 
     try {
-      const proxyUrl = parseProxyInput(url);
       await createProxy(proxyUrl, label || undefined);
       setPageError(null);
       setUrl('');
@@ -141,9 +173,16 @@ export default function ProxiesPage() {
     setError('');
 
     if (!editProxy) return;
+    const trimmedUrl = url.trim();
+    const proxyUrl = trimmedUrl ? parseProxyInput(trimmedUrl) : undefined;
 
-    if (url && !validateUrl(url)) {
-      setError('Invalid proxy format. Use: host:port:user:pass (max 500 chars)');
+    if (proxyUrl && !validateNormalizedProxyUrl(proxyUrl)) {
+      setError('Invalid proxy format. Use full URL or shorthand host:port / host:port:user:pass.');
+      return;
+    }
+
+    if (proxyUrl && isMaskedProxyUrl(proxyUrl)) {
+      setError('Masked URLs cannot be saved. Enter the full proxy URL if you want to replace it.');
       return;
     }
 
@@ -153,7 +192,6 @@ export default function ProxiesPage() {
     }
 
     try {
-      const proxyUrl = url ? parseProxyInput(url) : undefined;
       await updateProxy(editProxy.id, {
         url: proxyUrl,
         label: label || undefined,
@@ -203,7 +241,7 @@ export default function ProxiesPage() {
 
   const openEditDialog = (proxy: Proxy) => {
     setEditProxy(proxy);
-    setUrl(proxy.url);
+    setUrl('');
     setLabel(proxy.label || '');
     setError('');
     setDialogOpen(true);
@@ -253,7 +291,7 @@ export default function ProxiesPage() {
         <CardHeader>
           <CardTitle>Proxy List</CardTitle>
           <CardDescription>
-            Manage SOCKS5 proxies for Grok API requests
+            Manage HTTP or SOCKS proxies for Grok API requests
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -369,7 +407,7 @@ export default function ProxiesPage() {
               {editProxy ? 'Edit Proxy' : 'Add Proxy'}
             </DialogTitle>
             <DialogDescription>
-              Enter proxy details (format: host:port:user:pass)
+              Enter a full proxy URL or shorthand host:port / host:port:user:pass
             </DialogDescription>
           </DialogHeader>
           {error && (
@@ -383,11 +421,15 @@ export default function ProxiesPage() {
               <Input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
-                placeholder="149.19.197.214:51845:khoa2807:khoa2807"
+                placeholder={
+                  editProxy
+                    ? editProxy.url
+                    : 'http://149.19.197.214:51845 or socks5h://user:pass@149.19.197.214:51845'
+                }
                 maxLength={500}
               />
               <p className="text-xs text-slate-500">
-                Format: host:port:user:pass (max 500 chars)
+                Leave blank when editing to keep the current URL. Full URL is recommended.
               </p>
             </div>
             <div className="space-y-2">

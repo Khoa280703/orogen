@@ -6,7 +6,7 @@ export default function NodejsGuide() {
       <div>
         <h1 className="text-4xl font-bold mb-4">Node.js Integration</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Build Node.js applications with the Grok API.
+          Build Node.js applications against the gateway with the OpenAI SDK.
         </p>
       </div>
 
@@ -25,12 +25,12 @@ export default function NodejsGuide() {
             '',
             'const client = new OpenAI({',
             '  apiKey: "your-api-key",',
-            '  baseURL: "https://api.example.com/v1"',
+            '  baseURL: "https://your-duanai-domain.com/v1"',
             '});',
             '',
             'async function chat() {',
             '  const response = await client.chat.completions.create({',
-            '    model: "grok-3",',
+            '    model: "your-model-id",',
             '    messages: [',
             '      { role: "system", content: "You are a helpful assistant." },',
             '      { role: "user", content: "Hello!" }',
@@ -53,12 +53,12 @@ export default function NodejsGuide() {
             '',
             'const client = new OpenAI({',
             '  apiKey: "your-api-key",',
-            '  baseURL: "https://api.example.com/v1"',
+            '  baseURL: "https://your-duanai-domain.com/v1"',
             '});',
             '',
             'async function streamChat() {',
             '  const stream = await client.chat.completions.create({',
-            '    model: "grok-3",',
+            '    model: "your-model-id",',
             '    messages: [{ role: "user", content: "Tell me a story." }],',
             '    stream: true',
             '  });',
@@ -85,15 +85,15 @@ export default function NodejsGuide() {
             'app.use(express.json());',
             '',
             'const client = new OpenAI({',
-            '  apiKey: process.env.GROK_API_KEY,',
-            '  baseURL: "https://api.example.com/v1"',
+            '  apiKey: process.env.DUANAI_API_KEY,',
+            '  baseURL: "https://your-duanai-domain.com/v1"',
             '});',
             '',
             'app.post("/api/chat", async (req, res) => {',
             '  const { message } = req.body;',
             '',
             '  const response = await client.chat.completions.create({',
-            '    model: "grok-3",',
+            '    model: "your-model-id",',
             '    messages: [{ role: "user", content: message }]',
             '  });',
             '',
@@ -103,6 +103,9 @@ export default function NodejsGuide() {
             'app.listen(3000, () => console.log("Server running on port 3000"));',
           ]}
         </CodeBlock>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Keep the model slug aligned with <code>GET /v1/models</code> so your app only shows what the customer plan can actually call.
+        </p>
       </section>
     </div>
   );

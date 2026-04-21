@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Activity,
+  Boxes,
   CreditCard,
   FileText,
   ImageIcon,
@@ -24,6 +25,7 @@ const navItems = [
   { href: '/admin/images', icon: ImageIcon, label: 'Images' },
   { href: '/admin/payments', icon: CreditCard, label: 'Payments' },
   { href: '/admin/plans', icon: FileText, label: 'Plans' },
+  { href: '/admin/providers', icon: Boxes, label: 'Providers' },
   { href: '/admin/revenue', icon: TrendingUp, label: 'Revenue' },
   { href: '/admin/usage', icon: Activity, label: 'Usage' },
   { href: '/admin/health', icon: Activity, label: 'Health' },

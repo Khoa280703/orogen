@@ -25,12 +25,13 @@ export function ChatGuestShell({
 }: ChatGuestShellProps) {
   const router = useRouter();
   const [selectedChatModel, setSelectedChatModel] = useState(
-    chatModels[0]?.id || "grok-3"
+    chatModels[0]?.id || ""
   );
+  const effectiveSelectedChatModel = selectedChatModel || chatModels[0]?.id || "";
 
   async function handleSubmit(content: string) {
     if (onSubmit) {
-      await onSubmit(content, selectedChatModel);
+      await onSubmit(content, effectiveSelectedChatModel);
       return;
     }
 
@@ -51,7 +52,7 @@ export function ChatGuestShell({
 
       <ChatInput
         chatModels={chatModels}
-        selectedChatModel={selectedChatModel}
+        selectedChatModel={effectiveSelectedChatModel}
         onChatModelChange={setSelectedChatModel}
         onSubmit={handleSubmit}
       />

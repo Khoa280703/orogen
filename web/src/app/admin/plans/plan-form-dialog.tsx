@@ -193,6 +193,36 @@ export function PlanFormDialog({ open, onClose, onSaved, editPlanId, initialData
     });
   };
 
+  const toggleProviderModels = (models: Model[]) => {
+    setForm((prev) => {
+      const providerIds = models.map((model) => model.id);
+      const providerIdSet = new Set(providerIds);
+      const allSelected = providerIds.every((modelId) => prev.selected_model_ids.includes(modelId));
+      const nextSelectedIds = allSelected
+        ? prev.selected_model_ids.filter((id) => !providerIdSet.has(id))
+        : Array.from(new Set([...prev.selected_model_ids, ...providerIds]));
+      const nextModelLimits = { ...prev.model_limits };
+
+      if (allSelected) {
+        models.forEach((model) => {
+          delete nextModelLimits[model.slug];
+        });
+      } else {
+        models.forEach((model) => {
+          if (!nextModelLimits[model.slug]) {
+            nextModelLimits[model.slug] = emptyModelLimitDraft();
+          }
+        });
+      }
+
+      return {
+        ...prev,
+        selected_model_ids: nextSelectedIds,
+        model_limits: nextModelLimits,
+      };
+    });
+  };
+
   const setModelLimit = (
     modelSlug: string,
     key: keyof ModelLimitDraft,
@@ -387,11 +417,22 @@ export function PlanFormDialog({ open, onClose, onSaved, editPlanId, initialData
               )}
 
               <div className="space-y-3">
-                {Object.entries(grouped).map(([provider, models]) => (
+                {Object.entries(grouped).map(([provider, models]) => {
+                  const selectedInProvider = models.filter((model) => form.selected_model_ids.includes(model.id)).length;
+                  const providerChecked = models.length > 0 && selectedInProvider === models.length;
+
+                  return (
                   <section key={provider} className="overflow-hidden rounded-[var(--radius)] border bg-background/80">
                     <div className="flex items-center justify-between border-b px-3 py-2">
-                      <div className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{provider}</div>
-                      <Badge variant="secondary">{models.length}</Badge>
+                      <label className="flex cursor-pointer items-center gap-2">
+                        <Checkbox
+                          checked={providerChecked}
+                          onCheckedChange={() => toggleProviderModels(models)}
+                          className="border-slate-600 data-[checked]:border-sky-500 data-[checked]:bg-sky-500"
+                        />
+                        <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{provider}</span>
+                      </label>
+                      <Badge variant="secondary">{selectedInProvider}/{models.length}</Badge>
                     </div>
                     <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">
                       {models.map((model) => (
@@ -405,12 +446,12 @@ export function PlanFormDialog({ open, onClose, onSaved, editPlanId, initialData
                             onCheckedChange={() => toggleModel(model.id)}
                             className="border-slate-600 data-[checked]:border-sky-500 data-[checked]:bg-sky-500"
                           />
-                          <span className="truncate text-sm font-medium text-foreground">{model.name}</span>
+                          <span className="truncate font-mono text-sm font-medium text-foreground">{model.slug}</span>
                         </label>
                       ))}
                     </div>
                   </section>
-                ))}
+                )})}
               </div>
             </SectionCard>
 
@@ -430,8 +471,8 @@ export function PlanFormDialog({ open, onClose, onSaved, editPlanId, initialData
                       <section key={model.id} className="rounded-[var(--radius)] border bg-background/80 px-4 py-4">
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                           <div>
-                            <div className="text-sm font-semibold text-foreground">{model.name}</div>
-                            <div className="text-xs text-muted-foreground">{model.slug}</div>
+                            <div className="font-mono text-sm font-semibold text-foreground">{model.slug}</div>
+                            <div className="text-xs text-muted-foreground">{model.name}</div>
                           </div>
                           <Badge variant="outline">{model.provider_name}</Badge>
                         </div>

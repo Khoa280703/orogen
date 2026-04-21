@@ -10,17 +10,20 @@ import { AdminTableToolbar } from '@/components/admin/admin-table-toolbar';
 import { getUsageLogs, type UsageLogEntry } from '@/lib/api';
 import { useDebouncedValue } from '@/lib/use-debounced-value';
 
-const statusOptions = ['all', 'success', 'rate_limited', 'cf_blocked', 'service_unavailable', 'error'];
 const pageSizeOptions = [10, 20, 50, 100];
 
 export default function UsagePage() {
   const [logs, setLogs] = useState<UsageLogEntry[]>([]);
   const [total, setTotal] = useState(0);
+  const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
+  const [filterModels, setFilterModels] = useState<string[]>([]);
+  const [filterProviders, setFilterProviders] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [model, setModel] = useState('all');
+  const [provider, setProvider] = useState('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const debouncedSearch = useDebouncedValue(search, 250);
@@ -28,7 +31,7 @@ export default function UsagePage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, status, model]);
+  }, [debouncedSearch, status, model, provider]);
 
   useEffect(() => {
     const requestId = ++requestIdRef.current;
@@ -43,10 +46,14 @@ export default function UsagePage() {
           search: debouncedSearch,
           status,
           model,
+          provider,
         });
         if (requestId !== requestIdRef.current) return;
         setLogs(data.logs);
         setTotal(data.total);
+        setFilterStatuses(data.filters.statuses);
+        setFilterModels(data.filters.models);
+        setFilterProviders(data.filters.providers);
       } catch (error) {
         if (requestId !== requestIdRef.current) return;
         setErrorMessage(error instanceof Error ? error.message : 'Failed to load usage logs.');
@@ -57,7 +64,7 @@ export default function UsagePage() {
     }
 
     void loadLogs();
-  }, [debouncedSearch, model, page, pageSize, status]);
+  }, [debouncedSearch, model, page, pageSize, provider, status]);
 
   const getStatusBadge = (value: string | null) => {
     switch (value) {
@@ -67,13 +74,25 @@ export default function UsagePage() {
         return <Badge variant="secondary">Rate limited</Badge>;
       case 'cf_blocked':
         return <Badge variant="destructive">CF blocked</Badge>;
+      case 'proxy_failed':
+        return <Badge variant="destructive">Proxy failed</Badge>;
+      case 'unauthorized':
+        return <Badge variant="destructive">Unauthorized</Badge>;
+      case 'service_unavailable':
+        return <Badge variant="secondary">Unavailable</Badge>;
       default:
         return <Badge variant="outline">{value || 'Unknown'}</Badge>;
     }
   };
 
+  const statusOptions = Array.from(
+    new Set(['all', status, ...filterStatuses])
+  );
   const modelOptions = Array.from(
-    new Set(['all', model, ...(logs.map((log) => log.model).filter(Boolean) as string[])])
+    new Set(['all', model, ...filterModels])
+  );
+  const providerOptions = Array.from(
+    new Set(['all', provider, ...filterProviders])
   );
 
   return (
@@ -81,7 +100,7 @@ export default function UsagePage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Usage Logs</h1>
-          <p className="mt-1 text-sm text-slate-500">Track requests, latency, and failures across all API traffic.</p>
+          <p className="mt-1 text-sm text-slate-500">Track logged gateway requests, latency, and failures across provider routes.</p>
         </div>
         <Badge variant="outline">Total: {total} requests</Badge>
       </div>
@@ -123,6 +142,18 @@ export default function UsagePage() {
                     ))}
                   </SelectContent>
                 </Select>
+                <Select value={provider} onValueChange={(value) => setProvider(value || 'all')}>
+                  <SelectTrigger className="w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {providerOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option === 'all' ? 'All providers' : option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </>
             )}
           />
@@ -142,6 +173,7 @@ export default function UsagePage() {
                   <TableRow>
                     <TableHead>Time</TableHead>
                     <TableHead>Model</TableHead>
+                    <TableHead>Provider</TableHead>
                     <TableHead>Account</TableHead>
                     <TableHead>API Key</TableHead>
                     <TableHead>Status</TableHead>
@@ -155,6 +187,7 @@ export default function UsagePage() {
                         {log.created_at ? new Date(log.created_at).toLocaleString() : '-'}
                       </TableCell>
                       <TableCell>{log.model || '-'}</TableCell>
+                      <TableCell>{log.provider_slug || '-'}</TableCell>
                       <TableCell>{log.account_id ? `#${log.account_id}` : '-'}</TableCell>
                       <TableCell>{log.api_key_id ? `#${log.api_key_id}` : '-'}</TableCell>
                       <TableCell>{getStatusBadge(log.status)}</TableCell>
@@ -162,7 +195,7 @@ export default function UsagePage() {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="py-8 text-center text-sm text-slate-500">
+                      <TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500">
                         No usage logs match the current filters.
                       </TableCell>
                     </TableRow>

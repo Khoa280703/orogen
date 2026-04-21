@@ -16,9 +16,6 @@ import {
 export const dynamic = "force-dynamic";
 
 const CHAT_REFRESH_EVENT = "chat:conversations-changed";
-const FALLBACK_CHAT_MODELS: ChatModelOption[] = [
-  { id: "grok-3", label: "Grok 3", provider: "grok" },
-];
 
 export default function ChatIndexPage() {
   const router = useRouter();
@@ -131,7 +128,7 @@ export default function ChatIndexPage() {
   if (authenticated === false) {
     return (
       <ChatGuestShell
-        chatModels={chatModels.length ? chatModels : FALLBACK_CHAT_MODELS}
+        chatModels={chatModels}
       />
     );
   }
@@ -151,7 +148,7 @@ export default function ChatIndexPage() {
 
   return (
     <ChatGuestShell
-      chatModels={chatModels.length ? chatModels : FALLBACK_CHAT_MODELS}
+      chatModels={chatModels}
       error={error}
       onDismissError={() => setError(null)}
       onSubmit={handleSubmit}

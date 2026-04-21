@@ -87,16 +87,6 @@ export interface VideoGenerationRecord {
   errors: string[];
 }
 
-const DEFAULT_CHAT_MODELS: ChatModelOption[] = [
-  { id: "grok-3", label: "Grok 3", provider: "grok", description: "Balanced default model for fast everyday chat." },
-  { id: "grok-4", label: "Grok 4", provider: "grok", description: "Higher quality answers for demanding tasks." },
-];
-
-const DEFAULT_IMAGE_MODELS: ImageModelOption[] = [
-  { id: "imagine-x-1", label: "Imagine X1", provider: "grok", description: "Fast image generation for everyday creative work." },
-  { id: "imagine-x-1-pro", label: "Imagine X1 Pro", provider: "grok", description: null },
-];
-
 function isImageModel(modelId: string): boolean {
   return modelId.toLowerCase().startsWith("imagine");
 }
@@ -248,7 +238,7 @@ export async function listChatModels(): Promise<ChatModelOption[]> {
         .filter((model) => !isImageModel(model.id))
         .map((model) => ({
           id: model.id,
-          label: model.display_name || model.id,
+          label: model.id,
           provider: resolveProviderFromModelId(model.id, model.owned_by),
           description: model.description ?? null,
         }));
@@ -258,10 +248,9 @@ export async function listChatModels(): Promise<ChatModelOption[]> {
       }
     }
   } catch {
-    // Fall back to defaults.
+    return [];
   }
-
-  return DEFAULT_CHAT_MODELS;
+  return [];
 }
 
 export async function createConversation(
@@ -328,7 +317,7 @@ export async function listImageModels(): Promise<ImageModelOption[]> {
         .filter((model) => isImageModel(model.id))
         .map((model) => ({
           id: model.id,
-          label: model.display_name || model.id,
+          label: model.id,
           provider: resolveProviderFromModelId(model.id, model.owned_by),
           description: model.description ?? null,
         }));
@@ -338,10 +327,9 @@ export async function listImageModels(): Promise<ImageModelOption[]> {
       }
     }
   } catch {
-    // Fall back to defaults.
+    return [];
   }
-
-  return DEFAULT_IMAGE_MODELS;
+  return [];
 }
 
 export async function generateImages(

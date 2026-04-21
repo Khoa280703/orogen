@@ -30,9 +30,6 @@ import {
 
 const CHAT_REFRESH_EVENT = "chat:conversations-changed";
 const CHAT_STREAM_IDLE_TIMEOUT_MS = 15000;
-const FALLBACK_CHAT_MODELS: ChatModelOption[] = [
-  { id: "grok-3", label: "Grok 3", provider: "grok" },
-];
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +46,7 @@ export default function ChatConversationPage() {
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [messages, setMessages] = useState<RenderableChatMessage[]>([]);
   const [chatModels, setChatModels] = useState<ChatModelOption[]>([]);
-  const [selectedChatModel, setSelectedChatModel] = useState("grok-3");
+  const [selectedChatModel, setSelectedChatModel] = useState("");
   const [loading, setLoading] = useState(true);
   const [streaming, setStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +90,7 @@ export default function ChatConversationPage() {
           (item) => item.id === conversationDetail.conversation.model_slug
         )?.id ||
         nextChatModels[0]?.id ||
-        "grok-3";
+        "";
       setSelectedChatModel(nextSelectedChatModel);
     } catch (nextError) {
       const message =
@@ -145,27 +142,11 @@ export default function ChatConversationPage() {
     setLoading(false);
   }, [conversationId]);
 
-  useEffect(() => {
-    if (!conversationId || loading || streaming || initialDraftHandled) {
-      return;
-    }
-
-    const draft = consumePendingConversationDraft(conversationId);
-    setInitialDraftHandled(true);
-
-    if (!draft) {
-      return;
-    }
-
-    setSelectedChatModel(draft.chatModel);
-    void handleChatSubmit(draft.content, draft.chatModel, getDraftMessageIds(conversationId));
-  }, [conversationId, initialDraftHandled, loading, streaming]);
-
-  async function handleChatSubmit(
+  const handleChatSubmit = useCallback(async (
     content: string,
     modelOverride?: string,
     optimisticMessageIds?: { userId: string; assistantId: string }
-  ) {
+  ) => {
     if (!conversationId || streaming) {
       return;
     }
@@ -175,9 +156,11 @@ export default function ChatConversationPage() {
     const userMessageId = optimisticMessageIds?.userId || `user-${Date.now()}`;
     const startedAt = new Date().toISOString();
     const targetModel = modelOverride || selectedChatModel;
-    const targetModelOption =
-      chatModels.find((item) => item.id === targetModel) ||
-      FALLBACK_CHAT_MODELS.find((item) => item.id === targetModel);
+    const targetModelOption = chatModels.find((item) => item.id === targetModel);
+    if (!targetModelOption) {
+      setError("No chat model is available for this conversation");
+      return;
+    }
     const provider = resolveProviderFromModelId(
       targetModel,
       targetModelOption?.provider
@@ -312,7 +295,23 @@ export default function ChatConversationPage() {
       }
       setStreaming(false);
     }
-  }
+  }, [chatModels, conversationId, loadConversation, selectedChatModel, streaming]);
+
+  useEffect(() => {
+    if (!conversationId || loading || streaming || initialDraftHandled) {
+      return;
+    }
+
+    const draft = consumePendingConversationDraft(conversationId);
+    setInitialDraftHandled(true);
+
+    if (!draft) {
+      return;
+    }
+
+    setSelectedChatModel(draft.chatModel);
+    void handleChatSubmit(draft.content, draft.chatModel, getDraftMessageIds(conversationId));
+  }, [conversationId, handleChatSubmit, initialDraftHandled, loading, streaming]);
 
   async function handleSubmit(content: string) {
     await handleChatSubmit(content);
@@ -337,7 +336,7 @@ export default function ChatConversationPage() {
       </div>
 
       <ChatInput
-        chatModels={chatModels.length ? chatModels : FALLBACK_CHAT_MODELS}
+        chatModels={chatModels}
         selectedChatModel={selectedChatModel}
         disabled={streaming}
         onChatModelChange={setSelectedChatModel}

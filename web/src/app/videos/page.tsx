@@ -20,20 +20,17 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_MODELS: ChatModelOption[] = [
-  { id: "grok-3", label: "Grok 3", provider: "grok" },
-];
-
 export default function VideosPage() {
   const [prompt, setPrompt] = useState("");
-  const [models, setModels] = useState<ChatModelOption[]>(DEFAULT_MODELS);
-  const [selectedModel, setSelectedModel] = useState("grok-3");
+  const [models, setModels] = useState<ChatModelOption[]>([]);
+  const [selectedModel, setSelectedModel] = useState("");
   const [duration, setDuration] = useState("6");
   const [resolution, setResolution] = useState("480p");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<VideoGenerationRecord | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const noModelsAvailable = models.length === 0;
 
   useEffect(() => {
     const element = inputRef.current;
@@ -51,11 +48,13 @@ export default function VideosPage() {
     async function loadModels() {
       try {
         const nextModels = await listChatModels();
-        if (!alive || !nextModels.length) return;
+        if (!alive) return;
         setModels(nextModels);
-        setSelectedModel(nextModels[0]?.id || "grok-3");
+        setSelectedModel(nextModels[0]?.id || "");
       } catch {
-        // Keep fallback models.
+        setModels([]);
+        setSelectedModel("");
+        setError("No video-capable model is available for this account");
       }
     }
 
@@ -67,7 +66,7 @@ export default function VideosPage() {
 
   async function handleGenerate() {
     const trimmed = prompt.trim();
-    if (!trimmed || generating) return;
+    if (!trimmed || generating || !selectedModel) return;
 
     try {
       setGenerating(true);
@@ -186,9 +185,9 @@ export default function VideosPage() {
                       if (value) setSelectedModel(value);
                     }}
                   >
-                    <SelectTrigger className="h-10 w-auto min-w-0 max-w-[12rem] rounded-xl border border-white/10 bg-[#141414] px-3 text-xs text-[#e2e2e2] hover:bg-[#1a1a1a]">
+                    <SelectTrigger disabled={noModelsAvailable} className="h-10 w-auto min-w-0 max-w-[12rem] rounded-xl border border-white/10 bg-[#141414] px-3 text-xs text-[#e2e2e2] hover:bg-[#1a1a1a]">
                       <span className="truncate pr-0.5 font-medium text-[#f2f2f2]">
-                        {models.find((model) => model.id === selectedModel)?.label || "Select model"}
+                        {models.find((model) => model.id === selectedModel)?.label || "No model"}
                       </span>
                     </SelectTrigger>
                     <SelectContent className="w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/10 bg-[#101010] p-0 text-[#e2e2e2] shadow-[0_18px_48px_rgba(0,0,0,0.45)]">
@@ -233,7 +232,7 @@ export default function VideosPage() {
 
                 <Button
                   onClick={() => void handleGenerate()}
-                  disabled={generating || !prompt.trim()}
+                  disabled={generating || !prompt.trim() || !selectedModel}
                   className="rounded-xl bg-white p-2.5 text-[#1a1c1c] transition-all hover:bg-[#c8c6c5] active:scale-90"
                   aria-label="Generate video"
                 >

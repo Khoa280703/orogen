@@ -3,8 +3,8 @@ import { DocsSidebar } from '@/components/docs-sidebar';
 import { PublicSiteShell } from '@/components/public-site-shell';
 
 export const metadata: Metadata = {
-  title: 'Documentation - Grok API',
-  description: 'Complete API documentation and guides for building AI applications with Grok.',
+  title: 'Documentation - DuanAI Gateway',
+  description: 'Complete API documentation and integration guides for the DuanAI multi-provider gateway.',
 };
 
 export default function DocsLayout({

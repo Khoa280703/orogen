@@ -13,10 +13,34 @@ export interface ProxySummary {
   assigned_accounts: number;
 }
 
+export interface ProviderSummary {
+  id: number;
+  name: string;
+  slug: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface ProviderModelSummary {
+  id: number;
+  provider_id: number;
+  provider_name: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
 export interface AccountSummary {
   id: number;
   name: string;
-  cookies: object;
+  provider_slug: string;
+  credential_preview: Record<string, unknown>;
+  account_label: string | null;
+  external_account_id: string | null;
+  auth_mode: string | null;
   active: boolean;
   proxy_id: number | null;
   profile_dir: string | null;
@@ -29,16 +53,68 @@ export interface AccountSummary {
   created_at: string | null;
   session_checked_at: string | null;
   cookies_synced_at: string | null;
+  routing_state: string;
+  cooldown_until: string | null;
+  last_routing_error: string | null;
+  rate_limit_streak: number;
+  auth_failure_streak: number;
+  refresh_failure_streak: number;
+}
+
+export interface AccountUsageQuota {
+  used: number;
+  total: number;
+  remaining: number;
+  remaining_percentage: number;
+  reset_at: string | null;
+  unlimited: boolean;
+}
+
+export interface AccountUsageSummary {
+  account_id: number;
+  provider_slug: string;
+  supported: boolean;
+  fetched_at: string;
+  plan: string | null;
+  limit_reached: boolean | null;
+  message: string | null;
+  quotas: Record<string, AccountUsageQuota>;
+}
+
+export interface CodexLoginSession {
+  session_id: string;
+  account_id: number;
+  status: string;
+  verification_url: string;
+  user_code: string | null;
+  expires_at: string | null;
+  command: string;
+  message: string | null;
+}
+
+export interface PublicGatewayModel {
+  id: string;
+  object?: string;
+  display_name?: string;
+  description?: string | null;
+  owned_by?: string;
 }
 
 export interface UsageLogEntry {
   id: number | null;
   api_key_id: number | null;
   account_id: number | null;
+  provider_slug: string | null;
   model: string | null;
   status: string | null;
   latency_ms: number | null;
   created_at: string | null;
+}
+
+export interface UsageLogFilters {
+  statuses: string[];
+  models: string[];
+  providers: string[];
 }
 
 export interface AdminListResponse<T> {
@@ -175,6 +251,45 @@ async function readJsonOrThrow<T>(response: Response): Promise<T> {
   }
 
   return text as T;
+}
+
+async function publicRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(buildApiUrl(endpoint), {
+    ...options,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const contentType = response.headers.get('content-type') || '';
+    let message = `API error: ${response.status}`;
+    try {
+      if (contentType.includes('application/json')) {
+        const text = await response.text();
+        if (text.trim()) {
+          const data = JSON.parse(text);
+          const detail =
+            (typeof data?.error === 'string' && data.error) ||
+            (typeof data?.error?.message === 'string' && data.error.message) ||
+            (typeof data?.message === 'string' && data.message) ||
+            null;
+          if (detail) {
+            message = `${message} - ${detail}`;
+          }
+        }
+      } else {
+        const text = await response.text();
+        const detail = formatTextError(response.status, text);
+        if (detail) {
+          message = `${message} - ${detail}`;
+        }
+      }
+    } catch {
+      // Keep default message if parsing fails.
+    }
+    throw new Error(message);
+  }
+
+  return readJsonOrThrow<T>(response);
 }
 
 export async function refreshCsrfToken(): Promise<boolean> {
@@ -330,28 +445,31 @@ export async function listAccounts() {
 
 export async function createAccount(data: {
   name: string;
-  cookies?: AccountCookiesInput;
+  providerSlug?: string;
+  credentials?: AccountCookiesInput;
   proxyId?: number | null;
 }) {
   return apiRequest<{ id: number }>('/admin/accounts', {
     method: 'POST',
     body: JSON.stringify({
       name: data.name,
-      cookies: data.cookies,
+      provider_slug: data.providerSlug,
+      credentials: data.credentials,
       proxy_id: data.proxyId,
     }),
   });
 }
 
 export async function updateAccount(id: number, data: {
-  cookies?: AccountCookiesInput;
+  credentials?: AccountCookiesInput;
   active?: boolean;
   proxyId?: number | null;
 }) {
   return apiRequest<{ success: boolean }>(`/admin/accounts/${id}`, {
     method: 'PUT',
     body: JSON.stringify({
-      ...data,
+      credentials: data.credentials,
+      active: data.active,
       proxy_id: data.proxyId,
     }),
   });
@@ -361,6 +479,10 @@ export async function deleteAccount(id: number) {
   return apiRequest<{ success: boolean }>(`/admin/accounts/${id}`, {
     method: 'DELETE',
   });
+}
+
+export async function getAccountUsage(id: number) {
+  return apiRequest<AccountUsageSummary>(`/admin/accounts/${id}/usage`);
 }
 
 export async function openAccountLoginBrowser(id: number) {
@@ -379,6 +501,104 @@ export async function syncAccountProfile(id: number) {
       method: 'POST',
     }
   );
+}
+
+export async function startCodexAccountLogin(id: number) {
+  return apiRequest<{ success: boolean; session: CodexLoginSession }>(
+    `/admin/accounts/${id}/start-codex-login`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function getCodexAccountLoginStatus(id: number) {
+  return apiRequest<{ success: boolean; session: CodexLoginSession }>(
+    `/admin/accounts/${id}/codex-login-status`
+  );
+}
+
+export async function submitCodexAccountCallback(id: number, callbackUrl: string) {
+  return apiRequest<{ success: boolean; session: CodexLoginSession }>(
+    `/admin/accounts/${id}/complete-codex-login`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ callback_url: callbackUrl }),
+    }
+  );
+}
+
+export async function refreshCodexAccountToken(id: number) {
+  return apiRequest<{ success: boolean; credential_preview: Record<string, unknown>; message?: string }>(
+    `/admin/accounts/${id}/refresh-codex-token`,
+    {
+      method: 'POST',
+    }
+  );
+}
+
+export async function listPublicGatewayModels(apiKey?: string) {
+  const headers: HeadersInit = {};
+  if (apiKey?.trim()) {
+    headers.Authorization = `Bearer ${apiKey.trim()}`;
+  }
+
+  return publicRequest<{ data?: PublicGatewayModel[] }>('/v1/models', {
+    headers,
+  });
+}
+
+// Providers
+export async function listProviders() {
+  return apiRequest<{ data: ProviderSummary[] }>('/admin/providers');
+}
+
+export async function createProvider(data: { name: string; slug: string }) {
+  return apiRequest<{ data: ProviderSummary }>('/admin/providers', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateProvider(id: number, data: { name?: string; active?: boolean }) {
+  return apiRequest<{ data: ProviderSummary }>(`/admin/providers/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+// Models
+export async function listProviderModels() {
+  return apiRequest<{ data: ProviderModelSummary[] }>('/admin/models');
+}
+
+export async function createProviderModel(data: {
+  provider_id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  sort_order?: number;
+}) {
+  return apiRequest<{ data: ProviderModelSummary }>('/admin/models', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateProviderModel(
+  id: number,
+  data: { name?: string; description?: string; active?: boolean; sort_order?: number }
+) {
+  return apiRequest<{ data: ProviderModelSummary }>(`/admin/models/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deactivateProviderModel(id: number) {
+  return apiRequest<{ success: boolean; message?: string }>(`/admin/models/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 // API Keys
@@ -434,6 +654,7 @@ export async function getUsageLogs(params?: {
   search?: string;
   status?: string;
   model?: string;
+  provider?: string;
 }) {
   const query = new URLSearchParams({
     page: String(params?.page ?? 1),
@@ -442,7 +663,14 @@ export async function getUsageLogs(params?: {
   if (params?.search?.trim()) query.set('search', params.search.trim());
   if (params?.status?.trim() && params.status !== 'all') query.set('status', params.status.trim());
   if (params?.model?.trim() && params.model !== 'all') query.set('model', params.model.trim());
-  return apiRequest<{ logs: UsageLogEntry[]; total: number; page: number; limit: number }>(`/admin/stats/logs?${query.toString()}`);
+  if (params?.provider?.trim() && params.provider !== 'all') query.set('provider', params.provider.trim());
+  return apiRequest<{
+    logs: UsageLogEntry[];
+    total: number;
+    page: number;
+    limit: number;
+    filters: UsageLogFilters;
+  }>(`/admin/stats/logs?${query.toString()}`);
 }
 
 export async function adminFetch<T>(endpoint: string, options: RequestInit = {}) {

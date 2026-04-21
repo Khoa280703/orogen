@@ -6,124 +6,59 @@ export default function ModelsPage() {
       <div>
         <h1 className="text-4xl font-bold mb-4">Available Models</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Use exact model slugs from the platform. Aliases like <code>grok-latest</code> are no longer supported.
+          Treat the public catalog as the source of truth. The model slugs available to your API key come from <code>GET /v1/models</code>, not directly from upstream providers.
         </p>
       </div>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Grok-3</h2>
+        <h2 className="text-2xl font-semibold">How To Discover Models</h2>
         <p className="text-slate-600 dark:text-slate-400">
-          Our flagship model with excellent general-purpose capabilities. Perfect for chatbots, content generation, and code assistance.
+          Query the catalog anonymously to inspect the public catalog, or use the same customer API key your application will use in production to get a plan-filtered view.
         </p>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Context Length</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">128K tokens</p>
-          </div>
-          <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Best For</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">General tasks, chat</p>
-          </div>
-          <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Speed</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Fast</p>
-          </div>
-        </div>
+        <CodeBlock language="bash">
+          {[
+            'curl https://your-duanai-domain.com/v1/models \\',
+            '  -H "Authorization: Bearer your-api-key"',
+          ]}
+        </CodeBlock>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-2xl font-semibold">Example Response</h2>
         <CodeBlock language="json">
           {`{
-  "model": "grok-3",
-  "messages": [{"role": "user", "content": "Hello!"}]
+  "object": "list",
+  "data": [
+    {
+      "id": "your-chat-model",
+      "object": "model",
+      "owned_by": "codex"
+    },
+    {
+      "id": "your-image-or-alt-model",
+      "object": "model",
+      "owned_by": "grok"
+    }
+  ]
 }`}
         </CodeBlock>
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Grok-3-Thinking</h2>
-        <p className="text-slate-600 dark:text-slate-400">
-          Enhanced reasoning capabilities for complex problems. Ideal for math, logic puzzles, and multi-step reasoning tasks.
-        </p>
+        <h2 className="text-2xl font-semibold">Catalog Rules</h2>
         <div className="grid md:grid-cols-3 gap-4">
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Context Length</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">128K tokens</p>
+            <h3 className="font-semibold mb-2">Plan-Visible</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Only models sold by your plan appear in the response.</p>
           </div>
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Best For</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Reasoning, math, logic</p>
+            <h3 className="font-semibold mb-2">Public Slugs</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Use public slugs from this list instead of relying on raw upstream names.</p>
           </div>
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Speed</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Medium</p>
+            <h3 className="font-semibold mb-2">Route-Stable</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Backend routing may change internally without forcing client-side config changes.</p>
           </div>
-        </div>
-        <CodeBlock language="json">
-          {`{
-  "model": "grok-3-thinking",
-  "messages": [{"role": "user", "content": "Solve this complex problem..."}]
-}`}
-        </CodeBlock>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Grok-4-Auto</h2>
-        <p className="text-slate-600 dark:text-slate-400">
-          Balanced default for production chat workloads when you want Grok-4 quality without switching slugs dynamically.
-        </p>
-        <div className="grid md:grid-cols-3 gap-4">
-          <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Context Length</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">128K tokens</p>
-          </div>
-          <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Best For</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Production chat, balanced quality</p>
-          </div>
-          <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Speed</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Medium</p>
-          </div>
-        </div>
-        <CodeBlock language="json">
-          {`{
-  "model": "grok-latest",
-  "messages": [{"role": "user", "content": "Summarize this release note."}]
-}`}
-        </CodeBlock>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-2xl font-semibold">Model Comparison</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <th className="text-left p-3">Model</th>
-                <th className="text-left p-3">Context</th>
-                <th className="text-left p-3">Best For</th>
-                <th className="text-left p-3">Speed</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <td className="p-3 font-medium">grok-3</td>
-                <td className="p-3">128K</td>
-                <td className="p-3">General tasks</td>
-                <td className="p-3">Fast</td>
-              </tr>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <td className="p-3 font-medium">grok-3-thinking</td>
-                <td className="p-3">128K</td>
-                <td className="p-3">Reasoning</td>
-                <td className="p-3">Medium</td>
-              </tr>
-              <tr className="border-b border-slate-200 dark:border-slate-800">
-                <td className="p-3 font-medium">grok-4-auto</td>
-                <td className="p-3">128K</td>
-                <td className="p-3">Balanced production chat</td>
-                <td className="p-3">Medium</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </section>
     </div>

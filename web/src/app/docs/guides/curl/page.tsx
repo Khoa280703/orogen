@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { CodeBlock } from '@/components/code-block-with-copy';
 
 export default function CurlGuide() {
@@ -6,7 +8,7 @@ export default function CurlGuide() {
       <div>
         <h1 className="text-4xl font-bold mb-4">cURL Guide</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Use cURL to interact with the Grok API directly from your terminal.
+          Use cURL to interact with the gateway directly from your terminal.
         </p>
       </div>
 
@@ -14,10 +16,10 @@ export default function CurlGuide() {
         <h2 className="text-2xl font-semibold">Basic Request</h2>
         <CodeBlock language="bash">
           {[
-            'curl https://api.example.com/v1/chat/completions \\',
+            'curl https://your-duanai-domain.com/v1/chat/completions \\',
             '  -H "Authorization: Bearer your-api-key" \\',
             '  -H "Content-Type: application/json" \\',
-            '  -d \'{"model": "grok-3", "messages": [{"role": "user", "content": "Hello, world!"}]}\'',
+            '  -d \'{"model": "your-model-id", "messages": [{"role": "user", "content": "Hello, world!"}]}\'',
           ]}
         </CodeBlock>
       </section>
@@ -26,10 +28,10 @@ export default function CurlGuide() {
         <h2 className="text-2xl font-semibold">With System Prompt</h2>
         <CodeBlock language="bash">
           {[
-            'curl https://api.example.com/v1/chat/completions \\',
+            'curl https://your-duanai-domain.com/v1/chat/completions \\',
             '  -H "Authorization: Bearer your-api-key" \\',
             '  -H "Content-Type: application/json" \\',
-            '  -d \'{"model": "grok-3", "messages": [{"role": "system", "content": "You are a helpful coding assistant."}, {"role": "user", "content": "Write a Python function."}]}\'',
+            '  -d \'{"model": "your-model-id", "messages": [{"role": "system", "content": "You are a helpful coding assistant."}, {"role": "user", "content": "Write a Python function."}]}\'',
           ]}
         </CodeBlock>
       </section>
@@ -38,7 +40,7 @@ export default function CurlGuide() {
         <h2 className="text-2xl font-semibold">List Available Models</h2>
         <CodeBlock language="bash">
           {[
-            'curl https://api.example.com/v1/models \\',
+            'curl https://your-duanai-domain.com/v1/models \\',
             '  -H "Authorization: Bearer your-api-key"',
           ]}
         </CodeBlock>
@@ -49,15 +51,18 @@ export default function CurlGuide() {
         <CodeBlock language="bash">
           {[
             '# Set your API key',
-            'export GROK_API_KEY="your-api-key"',
+            'export DUANAI_API_KEY="your-api-key"',
             '',
             '# Use in curl',
-            'curl https://api.example.com/v1/chat/completions \\',
-            '  -H "Authorization: Bearer $GROK_API_KEY" \\',
+            'curl https://your-duanai-domain.com/v1/chat/completions \\',
+            '  -H "Authorization: Bearer $DUANAI_API_KEY" \\',
             '  -H "Content-Type: application/json" \\',
-            '  -d \'{"model": "grok-3", "messages": [{"role": "user", "content": "Hello!"}]}\'',
+            '  -d \'{"model": "your-model-id", "messages": [{"role": "user", "content": "Hello!"}]}\'',
           ]}
         </CodeBlock>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          For Codex CLI specifically, use the dedicated <Link href="/docs/guides/codex-cli" className="text-blue-500 hover:underline">Codex CLI guide</Link>.
+        </p>
       </section>
     </div>
   );

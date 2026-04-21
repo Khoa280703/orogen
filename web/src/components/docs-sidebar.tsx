@@ -24,6 +24,8 @@ const navItems: NavItem[] = [
     label: 'Guides',
     children: [
       { label: 'Quickstart', href: '/docs/guides/quickstart' },
+      { label: 'Codex CLI', href: '/docs/guides/codex-cli' },
+      { label: 'Provider Onboarding', href: '/docs/guides/provider-onboarding' },
       { label: 'Python', href: '/docs/guides/python' },
       { label: 'Node.js', href: '/docs/guides/nodejs' },
       { label: 'cURL', href: '/docs/guides/curl' },

@@ -8,7 +8,7 @@ export default function DocsHome() {
       <div>
         <h1 className="text-4xl font-bold mb-4">Welcome to the API Docs</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Build powerful AI applications with our Grok API. Get started in minutes.
+          Build against a stable multi-provider API surface. Start with your API key, your base URL, and a model returned by <code>/v1/models</code>.
         </p>
       </div>
 
@@ -44,7 +44,7 @@ export default function DocsHome() {
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
             <h3 className="font-semibold mb-2">Multiple Models</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Access Grok-3, Grok-3-thinking, and Grok-latest models.
+              Sellable models come from the public catalog, not raw upstream inventory.
             </p>
           </div>
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
@@ -54,9 +54,9 @@ export default function DocsHome() {
             </p>
           </div>
           <div className="border border-slate-200 dark:border-slate-800 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Flexible Pricing</h3>
+            <h3 className="font-semibold mb-2">Client Compatibility</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Pay-as-you-go with multiple payment options.
+              OpenAI-compatible SDKs and the current text-first Codex CLI path can point at the same gateway.
             </p>
           </div>
         </div>
@@ -65,6 +65,14 @@ export default function DocsHome() {
       <div>
         <h2 className="text-2xl font-semibold mb-4">Popular Guides</h2>
         <div className="space-y-2">
+          <Link href="/docs/guides/codex-cli" className="block p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-blue-500 transition-colors">
+            <h3 className="font-semibold">Codex CLI</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Point Codex CLI at this gateway for the current text-first Responses path</p>
+          </Link>
+          <Link href="/docs/guides/provider-onboarding" className="block p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-blue-500 transition-colors">
+            <h3 className="font-semibold">Provider Onboarding</h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Internal checklist for adding Gemini, Claude, Grok, or other providers cleanly</p>
+          </Link>
           <Link href="/docs/guides/python" className="block p-4 border border-slate-200 dark:border-slate-800 rounded-lg hover:border-blue-500 transition-colors">
             <h3 className="font-semibold">Python Integration</h3>
             <p className="text-sm text-slate-600 dark:text-slate-400">Use the OpenAI library with our API</p>

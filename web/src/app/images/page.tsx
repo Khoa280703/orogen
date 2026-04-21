@@ -20,10 +20,10 @@ export const dynamic = "force-dynamic";
 
 export default function ImagesPage() {
   const [models, setModels] = useState<ImageModelOption[]>([]);
-  const [selectedModel, setSelectedModel] = useState("imagine-x-1");
+  const [selectedModel, setSelectedModel] = useState("");
   const [recentHistory, setRecentHistory] = useState<ImageGenerationRecord[]>([]);
   const [activeGeneration, setActiveGeneration] = useState<ImageGenerationRecord | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryPrompt, setRetryPrompt] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function ImagesPage() {
         setRecentHistory(history);
         setActiveGeneration(history[0] || null);
         setModels(modelOptions);
-        setSelectedModel(modelOptions[0]?.id || "imagine-x-1");
+        setSelectedModel(modelOptions[0]?.id || "");
       } catch (nextError) {
         if (alive) {
           setError(nextError instanceof Error ? nextError.message : "Failed to load image studio");
@@ -61,6 +61,11 @@ export default function ImagesPage() {
   }, []);
 
   async function handleGenerate(prompt: string) {
+    if (!selectedModel) {
+      setError("No image model is available for this account");
+      return;
+    }
+
     try {
       setGenerating(true);
       setError(null);
@@ -169,7 +174,7 @@ export default function ImagesPage() {
       </div>
 
       <ImagePromptBar
-        models={models.length ? models : [{ id: "imagine-x-1", label: "Imagine X1", provider: "grok" }]}
+        models={models}
         selectedModel={selectedModel}
         loading={generating}
         onModelChange={setSelectedModel}

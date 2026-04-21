@@ -6,7 +6,7 @@ import { AdminSidebar } from '@/components/admin-sidebar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { clearAdminToken, getAdminToken, setAdminToken, subscribeToAdminToken } from '@/lib/api';
+import { getAdminToken, setAdminToken, subscribeToAdminToken } from '@/lib/api';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -30,10 +30,6 @@ export default function AdminLayout({
     if (!normalizedToken) return;
     setAdminToken(normalizedToken);
     setDraftToken('');
-  };
-
-  const handleClearToken = () => {
-    clearAdminToken();
   };
 
   if (!hasAdminToken) {
@@ -81,19 +77,7 @@ export default function AdminLayout({
       <div className="flex min-h-screen">
         <AdminSidebar />
         <div className="flex min-h-screen flex-1 flex-col">
-          <header className="border-b bg-white">
-            <div className="flex items-center justify-between px-6 py-4 lg:px-8">
-              <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Control Center</div>
-                <div className="mt-1 text-lg font-semibold text-slate-950">Admin Console</div>
-              </div>
-              <Button variant="outline" onClick={handleClearToken}>
-                Clear Admin Token
-              </Button>
-            </div>
-          </header>
-
-          <main className="flex-1 px-6 py-6 lg:px-8">
+          <main className="flex-1 px-4 py-4 lg:px-6 lg:py-5">
             <div className="mx-auto max-w-7xl">{children}</div>
           </main>
         </div>

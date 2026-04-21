@@ -6,7 +6,7 @@ export default function PythonGuide() {
       <div>
         <h1 className="text-4xl font-bold mb-4">Python Integration</h1>
         <p className="text-lg text-slate-600 dark:text-slate-400">
-          Use the Grok API with Python using the OpenAI library.
+          Use the gateway with Python through the OpenAI SDK.
         </p>
       </div>
 
@@ -26,12 +26,12 @@ export default function PythonGuide() {
             '# Initialize the client',
             'client = OpenAI(',
             '    api_key="your-api-key",',
-            '    base_url="https://api.example.com/v1"',
+            '    base_url="https://your-duanai-domain.com/v1"',
             ')',
             '',
             '# Make a request',
             'response = client.chat.completions.create(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    messages=[',
             '        {"role": "system", "content": "You are a helpful assistant."},',
             '        {"role": "user", "content": "Hello!"}',
@@ -51,12 +51,12 @@ export default function PythonGuide() {
             '',
             'client = OpenAI(',
             '    api_key="your-api-key",',
-            '    base_url="https://api.example.com/v1"',
+            '    base_url="https://your-duanai-domain.com/v1"',
             ')',
             '',
             '# Stream the response',
             'stream = client.chat.completions.create(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    messages=[{"role": "user", "content": "Tell me a story."}],',
             '    stream=True',
             ')',
@@ -74,7 +74,7 @@ export default function PythonGuide() {
         <CodeBlock language="python" title="advanced.py">
           {[
             'response = client.chat.completions.create(',
-            '    model="grok-3",',
+            '    model="your-model-id",',
             '    messages=[{"role": "user", "content": "Write a poem."}],',
             '    temperature=0.8,        # Creativity (0-2)',
             '    max_tokens=500,         # Max response length',
@@ -94,12 +94,12 @@ export default function PythonGuide() {
             '',
             'client = OpenAI(',
             '    api_key="your-api-key",',
-            '    base_url="https://api.example.com/v1"',
+            '    base_url="https://your-duanai-domain.com/v1"',
             ')',
             '',
             'try:',
             '    response = client.chat.completions.create(',
-            '        model="grok-3",',
+            '        model="your-model-id",',
             '        messages=[{"role": "user", "content": "Hello!"}]',
             '    )',
             'except RateLimitError:',
@@ -108,6 +108,9 @@ export default function PythonGuide() {
             '    print(f"API error: {e}")',
           ]}
         </CodeBlock>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          Use <code>GET /v1/models</code> to choose a plan-visible model slug instead of hard-coding upstream names.
+        </p>
       </section>
     </div>
   );
