@@ -4,6 +4,7 @@ dist/
 cookies.json
 config.json
 data/conversations/
+data/codex-accounts/
 data/browser-profiles/
 data/uc-cf-profile/
 data/uc-profile/
@@ -17,7 +18,12 @@ tmp/
 *.pyc
 local-model/.cache/
 local-model/.venv-qwen35-vllm/
+local-model/.venv-qwen35-sft/
 local-model/models/
+local-model/output/*.json
+local-model/output/*.jsonl
+local-model/output/qwen35-workflow-trace-sft-round-1-lora-dry-run/
+local-model/output/qwen35-workflow-trace-sft-search-wave-*-adapter/
 .env
 .env.*
 !.env.example
