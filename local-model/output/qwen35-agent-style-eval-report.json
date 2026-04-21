@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-04-15T07:33:06.280203+00:00",
+  "generated_at": "2026-04-15T08:14:08.739454+00:00",
   "base_url": "http://127.0.0.1:8004",
   "model": "qwen3.5-4b",
   "cases_file": "/home/khoa2807/working-sources/duanai/local-model/evals/qwen35-agent-style-eval-cases.json",
@@ -70,28 +70,28 @@
     ]
   },
   "validation": {
-    "cases": 40,
+    "cases": 48,
     "buckets": {
       "coding-fix": 8,
       "code-understanding": 8,
       "grounded-docs-qa": 8,
-      "research-synthesis": 8,
-      "plan-repair": 8
+      "research-synthesis": 12,
+      "plan-repair": 12
     },
     "dimension_coverage": {
-      "correctness": 40,
+      "correctness": 48,
       "groundedness": 8,
-      "concision": 24,
-      "verifier_pass_rate": 8,
+      "concision": 32,
+      "verifier_pass_rate": 12,
       "citation_faithfulness": 8
     }
   },
   "summary": {
     "overall": {
-      "cases": 40,
+      "cases": 48,
       "pass": 35,
-      "fail": 5,
-      "pass_rate": 0.875
+      "fail": 13,
+      "pass_rate": 0.7292
     },
     "buckets": {
       "coding-fix": {
@@ -113,28 +113,28 @@
         "pass_rate": 1.0
       },
       "research-synthesis": {
-        "cases": 8,
+        "cases": 12,
         "pass": 6,
-        "fail": 2,
-        "pass_rate": 0.75
+        "fail": 6,
+        "pass_rate": 0.5
       },
       "plan-repair": {
-        "cases": 8,
+        "cases": 12,
         "pass": 6,
-        "fail": 2,
-        "pass_rate": 0.75
+        "fail": 6,
+        "pass_rate": 0.5
       }
     },
     "dimension_scores": {
       "source": "case-level dimension_checks; proxy fallback remains for other suites that do not enforce full mapped-dimension coverage",
       "values": {
         "correctness": {
-          "cases": 40,
+          "cases": 48,
           "pass": 36,
-          "fail": 4,
-          "scored_cases": 40,
+          "fail": 12,
+          "scored_cases": 48,
           "proxy_cases": 0,
-          "pass_rate": 0.9,
+          "pass_rate": 0.75,
           "coverage": 1.0
         },
         "groundedness": {
@@ -147,21 +147,21 @@
           "coverage": 1.0
         },
         "concision": {
-          "cases": 24,
-          "pass": 23,
-          "fail": 1,
-          "scored_cases": 24,
+          "cases": 32,
+          "pass": 28,
+          "fail": 4,
+          "scored_cases": 32,
           "proxy_cases": 0,
-          "pass_rate": 0.9583,
+          "pass_rate": 0.875,
           "coverage": 1.0
         },
         "verifier_pass_rate": {
-          "cases": 8,
-          "pass": 7,
-          "fail": 1,
-          "scored_cases": 8,
+          "cases": 12,
+          "pass": 8,
+          "fail": 4,
+          "scored_cases": 12,
           "proxy_cases": 0,
-          "pass_rate": 0.875,
+          "pass_rate": 0.6667,
           "coverage": 1.0
         },
         "citation_faithfulness": {
@@ -179,10 +179,10 @@
       "source": "bucket-to-dimension proxy from case-level pass/fail",
       "values": {
         "correctness": {
-          "cases": 40,
+          "cases": 48,
           "pass": 35,
-          "fail": 5,
-          "pass_rate": 0.875
+          "fail": 13,
+          "pass_rate": 0.7292
         },
         "groundedness": {
           "cases": 8,
@@ -191,16 +191,16 @@
           "pass_rate": 1.0
         },
         "concision": {
-          "cases": 24,
+          "cases": 32,
           "pass": 20,
-          "fail": 4,
-          "pass_rate": 0.8333
+          "fail": 12,
+          "pass_rate": 0.625
         },
         "verifier_pass_rate": {
-          "cases": 8,
+          "cases": 12,
           "pass": 6,
-          "fail": 2,
-          "pass_rate": 0.75
+          "fail": 6,
+          "pass_rate": 0.5
         },
         "citation_faithfulness": {
           "cases": 8,
@@ -228,7 +228,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2447,
+      "latency_s": 0.2416,
       "usage": {
         "prompt_tokens": 43,
         "total_tokens": 57,
@@ -253,7 +253,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.1215,
+      "latency_s": 0.1198,
       "usage": {
         "prompt_tokens": 42,
         "total_tokens": 49,
@@ -278,7 +278,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.1297,
+      "latency_s": 0.1305,
       "usage": {
         "prompt_tokens": 42,
         "total_tokens": 50,
@@ -303,7 +303,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.3045,
+      "latency_s": 0.3005,
       "usage": {
         "prompt_tokens": 54,
         "total_tokens": 76,
@@ -328,7 +328,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2327,
+      "latency_s": 0.227,
       "usage": {
         "prompt_tokens": 41,
         "total_tokens": 57,
@@ -353,7 +353,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2169,
+      "latency_s": 0.2147,
       "usage": {
         "prompt_tokens": 49,
         "total_tokens": 64,
@@ -378,7 +378,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2303,
+      "latency_s": 0.2301,
       "usage": {
         "prompt_tokens": 51,
         "total_tokens": 67,
@@ -403,7 +403,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.1673,
+      "latency_s": 0.166,
       "usage": {
         "prompt_tokens": 49,
         "total_tokens": 60,
@@ -430,7 +430,7 @@
           ]
         }
       },
-      "latency_s": 0.0908,
+      "latency_s": 0.0922,
       "usage": {
         "prompt_tokens": 67,
         "total_tokens": 71,
@@ -451,7 +451,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.1581,
+      "latency_s": 0.1588,
       "usage": {
         "prompt_tokens": 53,
         "total_tokens": 63,
@@ -472,7 +472,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.0842,
+      "latency_s": 0.0838,
       "usage": {
         "prompt_tokens": 36,
         "total_tokens": 40,
@@ -493,7 +493,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.0539,
+      "latency_s": 0.0571,
       "usage": {
         "prompt_tokens": 61,
         "total_tokens": 63,
@@ -514,7 +514,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.0603,
+      "latency_s": 0.0561,
       "usage": {
         "prompt_tokens": 50,
         "total_tokens": 52,
@@ -535,7 +535,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.0616,
+      "latency_s": 0.0592,
       "usage": {
         "prompt_tokens": 36,
         "total_tokens": 38,
@@ -556,7 +556,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.0614,
+      "latency_s": 0.0566,
       "usage": {
         "prompt_tokens": 40,
         "total_tokens": 42,
@@ -577,7 +577,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.0542,
+      "latency_s": 0.0555,
       "usage": {
         "prompt_tokens": 44,
         "total_tokens": 46,
@@ -606,7 +606,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.3667,
+      "latency_s": 0.3605,
       "usage": {
         "prompt_tokens": 81,
         "total_tokens": 107,
@@ -635,7 +635,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.1891,
+      "latency_s": 0.1895,
       "usage": {
         "prompt_tokens": 56,
         "total_tokens": 69,
@@ -664,7 +664,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2317,
+      "latency_s": 0.2247,
       "usage": {
         "prompt_tokens": 66,
         "total_tokens": 81,
@@ -693,7 +693,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2532,
+      "latency_s": 0.2523,
       "usage": {
         "prompt_tokens": 76,
         "total_tokens": 93,
@@ -722,7 +722,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2822,
+      "latency_s": 0.2767,
       "usage": {
         "prompt_tokens": 72,
         "total_tokens": 91,
@@ -751,7 +751,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.178,
+      "latency_s": 0.1777,
       "usage": {
         "prompt_tokens": 60,
         "total_tokens": 72,
@@ -780,7 +780,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.1838,
+      "latency_s": 0.1779,
       "usage": {
         "prompt_tokens": 63,
         "total_tokens": 75,
@@ -809,7 +809,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.2102,
+      "latency_s": 0.2147,
       "usage": {
         "prompt_tokens": 80,
         "total_tokens": 94,
@@ -834,7 +834,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.4703,
+      "latency_s": 0.4752,
       "usage": {
         "prompt_tokens": 76,
         "total_tokens": 111,
@@ -859,7 +859,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.6528,
+      "latency_s": 0.6467,
       "usage": {
         "prompt_tokens": 44,
         "total_tokens": 94,
@@ -884,7 +884,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.5091,
+      "latency_s": 0.511,
       "usage": {
         "prompt_tokens": 45,
         "total_tokens": 84,
@@ -909,7 +909,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.6457,
+      "latency_s": 0.6497,
       "usage": {
         "prompt_tokens": 47,
         "total_tokens": 97,
@@ -934,7 +934,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.6123,
+      "latency_s": 0.6128,
       "usage": {
         "prompt_tokens": 52,
         "total_tokens": 99,
@@ -965,7 +965,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.5416,
+      "latency_s": 0.536,
       "usage": {
         "prompt_tokens": 47,
         "total_tokens": 88,
@@ -990,7 +990,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.5763,
+      "latency_s": 0.5769,
       "usage": {
         "prompt_tokens": 45,
         "total_tokens": 89,
@@ -1021,7 +1021,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.6329,
+      "latency_s": 0.636,
       "usage": {
         "prompt_tokens": 42,
         "total_tokens": 91,
@@ -1029,6 +1029,134 @@
         "prompt_tokens_details": null
       },
       "content": "REST: Uses fixed endpoints to return predefined data structures, often leading to over-fetching or under-fetching.\nGraphQL: Employs a single endpoint where clients request exactly the data they need, allowing for flexible querying and reduced network traffic."
+    },
+    {
+      "id": "research-synthesis-009",
+      "bucket": "research-synthesis",
+      "ok": false,
+      "failed_checks": [
+        "regex:^Batch:(?=[^\\n]*(scheduled|window|chunk|bulk|throughput))(?=[^\\n]*(delay|latency|later|not real-time|not real time))[^\\n]*\\n+Stream:(?=[^\\n]*(real-time|real time|continuous|event|immediate|low latency))(?=[^\\n]*(complex|state|ordering|backpressure|ops))[^\\n]*$"
+      ],
+      "failed_dimensions": [
+        "correctness"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "regex:^Batch:(?=[^\\n]*(scheduled|window|chunk|bulk|throughput))(?=[^\\n]*(delay|latency|later|not real-time|not real time))[^\\n]*\\n+Stream:(?=[^\\n]*(real-time|real time|continuous|event|immediate|low latency))(?=[^\\n]*(complex|state|ordering|backpressure|ops))[^\\n]*$"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.4516,
+      "usage": {
+        "prompt_tokens": 44,
+        "total_tokens": 78,
+        "completion_tokens": 34,
+        "prompt_tokens_details": null
+      },
+      "content": "Batch: Processes large volumes of data in fixed intervals to generate results after completion.\nStream: Handles continuous data flows in real-time by processing events as they arrive."
+    },
+    {
+      "id": "research-synthesis-010",
+      "bucket": "research-synthesis",
+      "ok": false,
+      "failed_checks": [
+        "regex:^Strong:(?=[^\\n]*(latest|strict|consistent|fresh read|fresh reads))(?=[^\\n]*(latency|coordination|availability|slower|cost))[^\\n]*\\n+Eventual:(?=[^\\n]*(replica|available|availability|fast|faster|distributed))(?=[^\\n]*(stale|delay|converge|convergence|inconsistent))[^\\n]*$",
+        "too_many_words:48>36"
+      ],
+      "failed_dimensions": [
+        "correctness",
+        "concision"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "regex:^Strong:(?=[^\\n]*(latest|strict|consistent|fresh read|fresh reads))(?=[^\\n]*(latency|coordination|availability|slower|cost))[^\\n]*\\n+Eventual:(?=[^\\n]*(replica|available|availability|fast|faster|distributed))(?=[^\\n]*(stale|delay|converge|convergence|inconsistent))[^\\n]*$"
+          ]
+        },
+        "concision": {
+          "ok": false,
+          "failed_checks": [
+            "too_many_words:48>36"
+          ]
+        }
+      },
+      "latency_s": 0.7612,
+      "usage": {
+        "prompt_tokens": 45,
+        "total_tokens": 104,
+        "completion_tokens": 59,
+        "prompt_tokens_details": null
+      },
+      "content": "Strong: Guarantees that all nodes see the same data immediately after an update, ensuring absolute data integrity at the cost of higher latency.\nEventual: Allows temporary data divergence across nodes, promising that all updates will eventually propagate so that all nodes see the same data after some time."
+    },
+    {
+      "id": "research-synthesis-011",
+      "bucket": "research-synthesis",
+      "ok": false,
+      "failed_checks": [
+        "regex:^Vertical:(?=[^\\n]*(bigger machine|single node|single server|upgrade|simple|simpler))(?=[^\\n]*(limit|cap|ceiling|hardware|downtime))[^\\n]*\\n+Horizontal:(?=[^\\n]*(more nodes|scale out|distributed|add servers|multiple nodes))(?=[^\\n]*(coordination|network|balancing|consistency|complex))[^\\n]*$"
+      ],
+      "failed_dimensions": [
+        "correctness"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "regex:^Vertical:(?=[^\\n]*(bigger machine|single node|single server|upgrade|simple|simpler))(?=[^\\n]*(limit|cap|ceiling|hardware|downtime))[^\\n]*\\n+Horizontal:(?=[^\\n]*(more nodes|scale out|distributed|add servers|multiple nodes))(?=[^\\n]*(coordination|network|balancing|consistency|complex))[^\\n]*$"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.3914,
+      "usage": {
+        "prompt_tokens": 44,
+        "total_tokens": 73,
+        "completion_tokens": 29,
+        "prompt_tokens_details": null
+      },
+      "content": "Vertical: Adds more resources to a single server to increase its capacity.\nHorizontal: Adds more servers to a cluster to distribute the workload."
+    },
+    {
+      "id": "research-synthesis-012",
+      "bucket": "research-synthesis",
+      "ok": false,
+      "failed_checks": [
+        "regex:^CDN:(?=[^\\n]*(edge|cache|latency|offload|closer))(?=[^\\n]*(stale|invalidation|purge|consistency|complex))[^\\n]*\\n+Origin:(?=[^\\n]*(simple|single source|centralized|consistent))(?=[^\\n]*(latency|load|bandwidth|distance|slower))[^\\n]*$"
+      ],
+      "failed_dimensions": [
+        "correctness"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "regex:^CDN:(?=[^\\n]*(edge|cache|latency|offload|closer))(?=[^\\n]*(stale|invalidation|purge|consistency|complex))[^\\n]*\\n+Origin:(?=[^\\n]*(simple|single source|centralized|consistent))(?=[^\\n]*(latency|load|bandwidth|distance|slower))[^\\n]*$"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 0.5363,
+      "usage": {
+        "prompt_tokens": 49,
+        "total_tokens": 90,
+        "completion_tokens": 41,
+        "prompt_tokens_details": null
+      },
+      "content": "CDN: Delivers content from edge servers globally to reduce latency and offload origin traffic.\nOrigin: Serves all requests directly from the primary server, resulting in higher latency and increased load."
     },
     {
       "id": "plan-repair-001",
@@ -1054,7 +1182,7 @@
           ]
         }
       },
-      "latency_s": 0.7778,
+      "latency_s": 0.7734,
       "usage": {
         "prompt_tokens": 53,
         "total_tokens": 113,
@@ -1083,7 +1211,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.8202,
+      "latency_s": 0.8244,
       "usage": {
         "prompt_tokens": 51,
         "total_tokens": 115,
@@ -1112,7 +1240,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.8808,
+      "latency_s": 0.8857,
       "usage": {
         "prompt_tokens": 46,
         "total_tokens": 115,
@@ -1151,7 +1279,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.846,
+      "latency_s": 0.8509,
       "usage": {
         "prompt_tokens": 47,
         "total_tokens": 113,
@@ -1180,7 +1308,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.8691,
+      "latency_s": 0.8677,
       "usage": {
         "prompt_tokens": 53,
         "total_tokens": 121,
@@ -1209,7 +1337,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.6208,
+      "latency_s": 0.6241,
       "usage": {
         "prompt_tokens": 46,
         "total_tokens": 94,
@@ -1238,7 +1366,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.7626,
+      "latency_s": 0.7607,
       "usage": {
         "prompt_tokens": 45,
         "total_tokens": 104,
@@ -1267,7 +1395,7 @@
           "failed_checks": []
         }
       },
-      "latency_s": 0.6364,
+      "latency_s": 0.6375,
       "usage": {
         "prompt_tokens": 48,
         "total_tokens": 97,
@@ -1275,6 +1403,163 @@
         "prompt_tokens_details": null
       },
       "content": "1. Identify the missing environment variable in the CI pipeline configuration file.\n2. Add the variable definition to the deployment script or secrets manager with the correct value.\n3. Re-run the pipeline to verify the deployment succeeds without errors."
+    },
+    {
+      "id": "plan-repair-009",
+      "bucket": "plan-repair",
+      "ok": false,
+      "failed_checks": [
+        "too_many_words:67>50",
+        "missing_unordered_line_match:(?i)(flush|purge|invalidate|warm|refresh|rebuild)"
+      ],
+      "failed_dimensions": [
+        "correctness",
+        "concision"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(flush|purge|invalidate|warm|refresh|rebuild)"
+          ]
+        },
+        "concision": {
+          "ok": false,
+          "failed_checks": [
+            "too_many_words:67>50"
+          ]
+        },
+        "verifier_pass_rate": {
+          "ok": true,
+          "failed_checks": []
+        }
+      },
+      "latency_s": 1.0729,
+      "usage": {
+        "prompt_tokens": 52,
+        "total_tokens": 136,
+        "completion_tokens": 84,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Implement a pre-deployment hook to explicitly flush all in-memory caches and clear CDN edge nodes before the code changes are applied.\n2. Configure the deployment pipeline to trigger a background job that forces database query cache invalidation immediately after the database migration completes.\n3. Add a monitoring alert for cache hit ratios dropping to zero post-deploy to verify that invalidation logic is functioning correctly in real-time."
+    },
+    {
+      "id": "plan-repair-010",
+      "bucket": "plan-repair",
+      "ok": false,
+      "failed_checks": [
+        "too_many_words:56>52",
+        "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(consumer|queue|backlog|errors|throughput)|(consumer|queue|backlog|errors|throughput).*(verify|confirm|monitor|test|check)"
+      ],
+      "failed_dimensions": [
+        "correctness",
+        "concision",
+        "verifier_pass_rate"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(consumer|queue|backlog|errors|throughput)|(consumer|queue|backlog|errors|throughput).*(verify|confirm|monitor|test|check)"
+          ]
+        },
+        "concision": {
+          "ok": false,
+          "failed_checks": [
+            "too_many_words:56>52"
+          ]
+        },
+        "verifier_pass_rate": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(consumer|queue|backlog|errors|throughput)|(consumer|queue|backlog|errors|throughput).*(verify|confirm|monitor|test|check)"
+          ]
+        }
+      },
+      "latency_s": 0.8883,
+      "usage": {
+        "prompt_tokens": 47,
+        "total_tokens": 116,
+        "completion_tokens": 69,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Implement a message validation step in the consumer to skip or reject malformed payloads before processing.\n2. Configure the broker to automatically redeliver failed messages to a dead-letter queue for manual inspection.\n3. Add logging and alerting to track invalid message patterns and trigger a rebuild of the data source if the error rate spikes."
+    },
+    {
+      "id": "plan-repair-011",
+      "bucket": "plan-repair",
+      "ok": false,
+      "failed_checks": [
+        "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(pod|service|ready|readiness|restarts|health)|(pod|service|ready|readiness|restarts|health).*(verify|confirm|monitor|test|check)"
+      ],
+      "failed_dimensions": [
+        "correctness",
+        "verifier_pass_rate"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(pod|service|ready|readiness|restarts|health)|(pod|service|ready|readiness|restarts|health).*(verify|confirm|monitor|test|check)"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(pod|service|ready|readiness|restarts|health)|(pod|service|ready|readiness|restarts|health).*(verify|confirm|monitor|test|check)"
+          ]
+        }
+      },
+      "latency_s": 0.6753,
+      "usage": {
+        "prompt_tokens": 49,
+        "total_tokens": 101,
+        "completion_tokens": 52,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Identify the correct endpoint path in your application code or configuration files.\n2. Update the readiness probe URL in your deployment manifest to match the actual service route.\n3. Apply the corrected manifest to restart the pods with the fixed probe configuration."
+    },
+    {
+      "id": "plan-repair-012",
+      "bucket": "plan-repair",
+      "ok": false,
+      "failed_checks": [
+        "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(429|traffic|requests|success|error rate)|(429|traffic|requests|success|error rate).*(verify|confirm|monitor|test|check)"
+      ],
+      "failed_dimensions": [
+        "correctness",
+        "verifier_pass_rate"
+      ],
+      "dimension_results": {
+        "correctness": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(429|traffic|requests|success|error rate)|(429|traffic|requests|success|error rate).*(verify|confirm|monitor|test|check)"
+          ]
+        },
+        "concision": {
+          "ok": true,
+          "failed_checks": []
+        },
+        "verifier_pass_rate": {
+          "ok": false,
+          "failed_checks": [
+            "missing_unordered_line_match:(?i)(verify|confirm|monitor|test|check).*(429|traffic|requests|success|error rate)|(429|traffic|requests|success|error rate).*(verify|confirm|monitor|test|check)"
+          ]
+        }
+      },
+      "latency_s": 0.8624,
+      "usage": {
+        "prompt_tokens": 55,
+        "total_tokens": 122,
+        "completion_tokens": 67,
+        "prompt_tokens_details": null
+      },
+      "content": "1. Analyze current rate-limit thresholds to identify the specific request patterns causing 429 errors.\n2. Temporarily increase the allowed request rate or implement a sliding window algorithm to accommodate legitimate traffic spikes.\n3. Monitor the system closely after adjustments to fine-tune limits and prevent future over-blocking of valid users."
     }
   ]
 }

@@ -1,0 +1,52 @@
+{
+  "format": "qwen35-cpt-train-config-v1",
+  "round_id": "phase-02-cpt-pilot-round-1",
+  "base_model_path": "./models/qwen3.5-4b",
+  "tokenizer_path": "./models/qwen3.5-4b",
+  "input_jsonl": "./output/qwen35-mixed-cpt-shard.jsonl",
+  "output_dir": "./output/qwen35-continual-pretraining-pilot-round-1-lora",
+  "sequence": {
+    "max_sequence_length": 2048,
+    "min_document_chars": 40
+  },
+  "quantization": {
+    "load_in_4bit": true,
+    "bnb_4bit_quant_type": "nf4",
+    "bnb_4bit_use_double_quant": true
+  },
+  "lora": {
+    "r": 32,
+    "alpha": 64,
+    "dropout": 0.05,
+    "bias": "none",
+    "target_modules": "all-linear"
+  },
+  "optimization": {
+    "epochs": 3.0,
+    "learning_rate": 0.00005,
+    "lr_scheduler_type": "cosine",
+    "warmup_ratio": 0.05,
+    "weight_decay": 0.01,
+    "max_grad_norm": 1.0
+  },
+  "batching": {
+    "per_device_train_batch_size": 1,
+    "per_device_eval_batch_size": 1,
+    "gradient_accumulation_steps": 8,
+    "gradient_checkpointing": true
+  },
+  "evaluation": {
+    "holdout_ratio": 0.1,
+    "min_eval_blocks": 8
+  },
+  "logging": {
+    "logging_steps": 5,
+    "eval_steps": 25,
+    "save_steps": 25,
+    "save_total_limit": 2
+  },
+  "preflight": {
+    "dry_run_command": "CUDA_VISIBLE_DEVICES=1 ./.venv-qwen35-sft/bin/python ./scripts/run-qwen35-continual-pretraining.py --dry-run --config ./configs/qwen35-continual-pretraining-pilot-round-1.json --output-dir ./output/qwen35-continual-pretraining-pilot-round-1-dry-run --report-output ./output/qwen35-continual-pretraining-pilot-round-1-dry-run-report.json --sample-limit 32 --max-steps 1 --max-sequence-length 512 --gpu-id 0",
+    "pilot_command": "CUDA_VISIBLE_DEVICES=1 ./.venv-qwen35-sft/bin/python ./scripts/run-qwen35-continual-pretraining.py --config ./configs/qwen35-continual-pretraining-pilot-round-1.json --output-dir ./output/qwen35-continual-pretraining-pilot-round-1-lora --report-output ./output/qwen35-continual-pretraining-pilot-round-1-report.json --gpu-id 0 --seed 424242"
+  }
+}

@@ -1,0 +1,252 @@
+{
+  "format": "qwen35-continual-pretraining-corpus-v1",
+  "model": "qwen3.5-4b",
+  "round_id": "phase-02-round-1",
+  "manifest_stage": "planning",
+  "language": "en",
+  "description": "Round-1 continual pretraining corpus plan for Qwen3.5-4B, mixing local workspace code/docs/logs with public technical repositories and troubleshooting references.",
+  "target_tokens": 120000000,
+  "dedupe_policy": {
+    "unit": "document",
+    "global_similarity_threshold": 0.92,
+    "near_duplicate_action": "drop-lower-quality-copy",
+    "boilerplate_action": "drop"
+  },
+  "sanitization_policy": {
+    "drop_generated_files": true,
+    "drop_secrets": true,
+    "drop_minified_assets": true,
+    "drop_binary_files": true,
+    "drop_vendor_directories": true,
+    "normalize_line_endings": true
+  },
+  "sources": [
+    {
+      "id": "local-duanai-product-code",
+      "kind": "local-glob",
+      "domain": "code",
+      "stage": "core",
+      "priority": "high",
+      "sampling_weight": 0.18,
+      "estimated_tokens": 21600000,
+      "minimum_local_matches": 150,
+      "commercial_status": "internal-only",
+      "include_globs": [
+        "../../src/**/*.rs",
+        "../../web/src/**/*.ts",
+        "../../web/src/**/*.tsx"
+      ],
+      "exclude_globs": [
+        "../../web/node_modules/**",
+        "../../web/.next/**",
+        "../../target/**"
+      ],
+      "filters": {
+        "max_file_bytes": 400000,
+        "drop_lockfiles": true,
+        "drop_build_outputs": true
+      },
+      "provenance": {
+        "type": "workspace",
+        "location": "/home/khoa2807/working-sources/duanai",
+        "reference": "git:589d44a08b0c64f0b603f554b29090a31ce39498",
+        "ready": true
+      }
+    },
+    {
+      "id": "local-model-runtime-and-serving-code",
+      "kind": "local-glob",
+      "domain": "code",
+      "stage": "core",
+      "priority": "high",
+      "sampling_weight": 0.14,
+      "estimated_tokens": 16800000,
+      "minimum_local_matches": 15,
+      "commercial_status": "internal-only",
+      "include_globs": [
+        "../scripts/*.py",
+        "../scripts/*.sh"
+      ],
+      "exclude_globs": [
+        "../scripts/__pycache__/**",
+        "../output/**"
+      ],
+      "filters": {
+        "max_file_bytes": 300000,
+        "drop_runtime_state": true
+      },
+      "provenance": {
+        "type": "workspace",
+        "location": "/home/khoa2807/working-sources/duanai/local-model",
+        "reference": "git:589d44a08b0c64f0b603f554b29090a31ce39498",
+        "ready": true
+      }
+    },
+    {
+      "id": "local-technical-docs-and-plans",
+      "kind": "local-glob",
+      "domain": "docs",
+      "stage": "core",
+      "priority": "high",
+      "sampling_weight": 0.1,
+      "estimated_tokens": 12000000,
+      "minimum_local_matches": 40,
+      "commercial_status": "internal-only",
+      "include_globs": [
+        "../README.md",
+        "../plans/**/*.md",
+        "../../plans/**/*.md",
+        "../../proxy.md",
+        "../../Cargo.toml",
+        "../../Dockerfile",
+        "../../docker-compose.yml",
+        "../../docker-compose.prod.yml"
+      ],
+      "exclude_globs": [],
+      "filters": {
+        "drop_status_boilerplate": false,
+        "prefer_merged_final_versions": true
+      },
+      "provenance": {
+        "type": "workspace",
+        "location": "/home/khoa2807/working-sources/duanai",
+        "reference": "git:589d44a08b0c64f0b603f554b29090a31ce39498",
+        "ready": true
+      }
+    },
+    {
+      "id": "local-runtime-logs-and-benchmarks",
+      "kind": "local-glob",
+      "domain": "troubleshooting",
+      "stage": "supporting",
+      "priority": "medium",
+      "sampling_weight": 0.08,
+      "estimated_tokens": 9600000,
+      "minimum_local_matches": 10,
+      "include_in_local_seed_shard": false,
+      "commercial_status": "internal-only",
+      "include_globs": [
+        "../output/**/*.log",
+        "../output/**/*load-test*.json",
+        "../output/**/*queue-smoke*.json",
+        "../output/**/*capacity*.json"
+      ],
+      "exclude_globs": [
+        "../output/**/runtime/*.pid"
+      ],
+      "filters": {
+        "truncate_extreme_repetition": true,
+        "drop_pid_files": true
+      },
+      "provenance": {
+        "type": "workspace",
+        "location": "/home/khoa2807/working-sources/duanai/local-model/output",
+        "reference": "git:589d44a08b0c64f0b603f554b29090a31ce39498",
+        "ready": true
+      }
+    },
+    {
+      "id": "qwen-official-repositories-and-docs",
+      "kind": "mixed-archive",
+      "domain": "code",
+      "stage": "core",
+      "priority": "high",
+      "sampling_weight": 0.18,
+      "estimated_tokens": 21600000,
+      "commercial_status": "review-required",
+      "uris": [
+        "https://github.com/QwenLM/Qwen3",
+        "https://github.com/QwenLM/Qwen3-Embedding",
+        "https://qwen.readthedocs.io/"
+      ],
+      "filters": {
+        "prefer_docs_examples_and_reference": true,
+        "drop_generated_checkpoints": true
+      },
+      "provenance": {
+        "type": "public",
+        "owner": "QwenLM",
+        "reference": "pending-pin-before-fetch",
+        "ready": false
+      }
+    },
+    {
+      "id": "vllm-and-transformers-runtime-stack",
+      "kind": "mixed-archive",
+      "domain": "code",
+      "stage": "core",
+      "priority": "high",
+      "sampling_weight": 0.15,
+      "estimated_tokens": 18000000,
+      "commercial_status": "review-required",
+      "uris": [
+        "https://github.com/vllm-project/vllm",
+        "https://github.com/huggingface/transformers",
+        "https://docs.vllm.ai/",
+        "https://huggingface.co/docs/transformers/main/en/index"
+      ],
+      "filters": {
+        "prefer_serving_inference_and_troubleshooting_material": true,
+        "drop_model_cards_without_technical_content": true
+      },
+      "provenance": {
+        "type": "public",
+        "owner": "vllm-project-and-huggingface",
+        "reference": "pending-pin-before-fetch",
+        "ready": false
+      }
+    },
+    {
+      "id": "issue-fix-and-troubleshooting-narratives",
+      "kind": "issue-archive",
+      "domain": "issues",
+      "stage": "supporting",
+      "priority": "medium",
+      "sampling_weight": 0.09,
+      "estimated_tokens": 10800000,
+      "commercial_status": "review-required",
+      "uris": [
+        "https://github.com/vllm-project/vllm/issues?q=is%3Aissue+label%3Abug",
+        "https://github.com/huggingface/transformers/issues?q=is%3Aissue+label%3Abug",
+        "https://github.com/QwenLM/Qwen3/issues"
+      ],
+      "filters": {
+        "require_resolution_signal": true,
+        "prefer_issue_to_fix_threads": true,
+        "drop_unresolved_speculation": true
+      },
+      "provenance": {
+        "type": "public",
+        "owner": "github",
+        "reference": "pending-pin-before-fetch",
+        "ready": false
+      }
+    },
+    {
+      "id": "api-design-and-systems-reference-docs",
+      "kind": "doc-archive",
+      "domain": "reference",
+      "stage": "supporting",
+      "priority": "medium",
+      "sampling_weight": 0.08,
+      "estimated_tokens": 9600000,
+      "commercial_status": "review-required",
+      "uris": [
+        "https://docs.pytorch.org/",
+        "https://doc.rust-lang.org/book/",
+        "https://nextjs.org/docs",
+        "https://docs.python.org/3/"
+      ],
+      "filters": {
+        "prefer_tutorials_and_api_reference": true,
+        "drop_marketing_pages": true
+      },
+      "provenance": {
+        "type": "public",
+        "owner": "official-docs",
+        "reference": "pending-pin-before-fetch",
+        "ready": false
+      }
+    }
+  ]
+}

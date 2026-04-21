@@ -1,0 +1,67 @@
+{
+  "format": "qwen35-sft-search-wave-v1",
+  "wave_id": "phase-03-search-wave-1",
+  "description": "First 3-lane SFT search wave for Qwen3.5-4B. This wave now uses the post-audit search-ready shard so the lanes compare recipes on a clean, rebalanced subset instead of the drifted planning shard.",
+  "base_config": "./configs/qwen35-workflow-trace-sft-round-1.json",
+  "train_jsonl": "./output/qwen35-workflow-trace-sft-search-ready-shard.jsonl",
+  "summary_output": "./output/qwen35-workflow-trace-sft-search-wave-1-summary.json",
+  "min_free_memory_mb": 8192,
+  "require_exclusive_gpu": true,
+  "ignored_process_names": ["sunshine"],
+  "lanes": [
+    {
+      "id": "gpu0-baseline-2048",
+      "gpu_id": 0,
+      "sample_limit": 2048,
+      "max_steps": 64,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-1-gpu0-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-1-gpu0-adapter",
+        "optimization": {
+          "learning_rate": 0.0002
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        }
+      },
+      "notes": "Baseline short-context lane. Used as the anchor recipe for the first search wave."
+    },
+    {
+      "id": "gpu1-longer-context-3072",
+      "gpu_id": 1,
+      "sample_limit": 2048,
+      "max_steps": 64,
+      "max_sequence_length": 3072,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-1-gpu1-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-1-gpu1-adapter",
+        "optimization": {
+          "learning_rate": 0.00015
+        },
+        "batching": {
+          "gradient_accumulation_steps": 24
+        }
+      },
+      "notes": "Longer-context lane with slightly more conservative learning dynamics."
+    },
+    {
+      "id": "gpu2-low-lr-2048",
+      "gpu_id": 2,
+      "sample_limit": 2048,
+      "max_steps": 64,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-1-gpu2-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-1-gpu2-adapter",
+        "optimization": {
+          "learning_rate": 0.0001
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        }
+      },
+      "notes": "Conservative-lr lane to test whether the current shard prefers slower adaptation."
+    }
+  ]
+}

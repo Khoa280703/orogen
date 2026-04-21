@@ -1,0 +1,51 @@
+{
+  "format": "qwen35-sft-search-wave-v1",
+  "wave_id": "phase-03-search-wave-3-chat-quality-repair",
+  "description": "Two-lane follow-up search after restoring chat-quality rows to the search-ready shard. Keeps GPU0 quarantined and tests whether the repaired mixture improves short-run recipe quality on healthy GPUs.",
+  "base_config": "./configs/qwen35-workflow-trace-sft-round-1.json",
+  "train_jsonl": "./output/qwen35-workflow-trace-sft-search-ready-shard.jsonl",
+  "summary_output": "./output/qwen35-workflow-trace-sft-search-wave-3-chat-quality-repair-summary.json",
+  "min_free_memory_mb": 8192,
+  "require_exclusive_gpu": true,
+  "ignored_process_names": ["sunshine"],
+  "lanes": [
+    {
+      "id": "gpu1-chat-repair-baseline-2048",
+      "gpu_id": 1,
+      "seed": 424242,
+      "sample_limit": 2048,
+      "max_steps": 64,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-3-gpu1-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-3-gpu1-adapter",
+        "optimization": {
+          "learning_rate": 0.0002
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        }
+      },
+      "notes": "Anchor lane on the repaired shard. Matches the original winning short-run recipe so the immediate delta isolates the chat-quality repair instead of changing multiple knobs at once."
+    },
+    {
+      "id": "gpu2-chat-repair-mid-lr-2048",
+      "gpu_id": 2,
+      "seed": 515151,
+      "sample_limit": 2048,
+      "max_steps": 64,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-3-gpu2-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-3-gpu2-adapter",
+        "optimization": {
+          "learning_rate": 0.00015
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        }
+      },
+      "notes": "Nearby lane on the repaired shard. Tests whether the restored chat-quality mix prefers a slightly calmer learning rate on the same short-run budget."
+    }
+  ]
+}

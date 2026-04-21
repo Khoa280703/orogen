@@ -22,6 +22,7 @@ REASONING_PARSER="${QWEN35_REASONING_PARSER:-qwen3}"
 ENABLE_AUTO_TOOL_CHOICE="${QWEN35_ENABLE_AUTO_TOOL_CHOICE:-1}"
 TOOL_CALL_PARSER="${QWEN35_TOOL_CALL_PARSER:-qwen3_xml}"
 LANGUAGE_MODEL_ONLY="${QWEN35_LANGUAGE_MODEL_ONLY:-1}"
+MAX_LORA_RANK="${QWEN35_MAX_LORA_RANK:-}"
 
 if [[ -z "$CUDA_HOME" ]]; then
   if command -v nvcc >/dev/null 2>&1; then
@@ -58,7 +59,9 @@ export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 export RAY_memory_monitor_refresh_ms="${RAY_memory_monitor_refresh_ms:-0}"
 export NCCL_CUMEM_ENABLE="${NCCL_CUMEM_ENABLE:-0}"
 export VLLM_ENABLE_CUDAGRAPH_GC="${VLLM_ENABLE_CUDAGRAPH_GC:-1}"
-export VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-1}"
+# Default to the safer sampler path. This avoids flashinfer JIT cache breakage
+# when the workspace root changes and stale absolute paths remain in cached ops.
+export VLLM_USE_FLASHINFER_SAMPLER="${VLLM_USE_FLASHINFER_SAMPLER:-0}"
 export FLASHINFER_WORKSPACE_BASE
 
 mkdir -p "$FLASHINFER_WORKSPACE_BASE"
@@ -101,6 +104,10 @@ if [[ "$ENABLE_AUTO_TOOL_CHOICE" == "1" || "$ENABLE_AUTO_TOOL_CHOICE" == "true" 
   if [[ -n "$TOOL_CALL_PARSER" ]] && supports_flag "--tool-call-parser"; then
     cmd+=(--tool-call-parser "$TOOL_CALL_PARSER")
   fi
+fi
+
+if [[ -n "$MAX_LORA_RANK" ]] && supports_flag "--max-lora-rank"; then
+  cmd+=(--max-lora-rank "$MAX_LORA_RANK")
 fi
 
 if [[ "$USE_SWAP_SPACE_FLAG" == "1" || "$USE_SWAP_SPACE_FLAG" == "true" ]]; then

@@ -1,0 +1,207 @@
+{
+  "format": "qwen35-workflow-trace-sft-manifest-v1",
+  "model": "qwen3.5-4b",
+  "round_id": "phase-03-round-1-search-ready",
+  "manifest_stage": "search-ready",
+  "language": "en",
+  "description": "Round-1 workflow-trace SFT plan for Qwen3.5-4B, mixing proprietary-teacher distill, broad open reasoning, and non-reasoning chat quality for response-only QLoRA. Search-ready rebalance after full-shard prefix audit.",
+  "target_examples": 23333,
+  "target_token_budget": 105990744,
+  "max_sequence_length": 8192,
+  "response_only": true,
+  "mixture_groups": [
+    {
+      "id": "distill",
+      "target_weight": 0.4500064286632666,
+      "description": "Opus/Sonnet-style reasoning distill and small tool-oriented traces.",
+      "clean_examples_available": 12041
+    },
+    {
+      "id": "open_reasoning",
+      "target_weight": 0.3000042857755111,
+      "description": "Broad open reasoning data to avoid overfitting on one proprietary teacher style.",
+      "clean_examples_available": 7000
+    },
+    {
+      "id": "chat_quality",
+      "target_weight": 0.2499892855612223,
+      "description": "Single-turn helpfulness and tone quality data to protect general instruction following.",
+      "clean_examples_available": 6000
+    }
+  ],
+  "sources": [
+    {
+      "id": "opus46-reasoning-core",
+      "kind": "hf-dataset",
+      "group": "distill",
+      "priority": "high",
+      "sampling_weight": 0.22153173616765953,
+      "max_examples": 5169,
+      "hf_dataset": "Farseen0/opus-4.6-reasoning-sft-12k",
+      "preferred_configs": [
+        "default"
+      ],
+      "preferred_splits": [
+        "train"
+      ],
+      "expected_schema": "messages",
+      "commercial_status": "review-required",
+      "normalization": {
+        "strategy": "messages",
+        "assistant_role": "assistant",
+        "user_role": "user",
+        "drop_explicit_reasoning_tags": false
+      },
+      "clean_examples_available": 5845,
+      "clean_recovery_rate": 0.974167,
+      "search_ready_clean_examples_available": 5845,
+      "estimated_tokens_per_example": 591.04
+    },
+    {
+      "id": "opus46-volume-topup",
+      "kind": "hf-dataset",
+      "group": "distill",
+      "priority": "high",
+      "sampling_weight": 0.17721681738310546,
+      "max_examples": 4135,
+      "hf_dataset": "Roman1111111/claude-opus-4.6-10000x",
+      "preferred_configs": [
+        "default"
+      ],
+      "preferred_splits": [
+        "train"
+      ],
+      "expected_schema": "messages",
+      "commercial_status": "review-required",
+      "normalization": {
+        "strategy": "messages",
+        "assistant_role": "assistant",
+        "user_role": "user",
+        "drop_explicit_reasoning_tags": false
+      },
+      "clean_examples_available": 5000,
+      "clean_recovery_rate": 1.0,
+      "search_ready_clean_examples_available": 5000,
+      "estimated_tokens_per_example": 285.39
+    },
+    {
+      "id": "opus46-filtered-topup",
+      "kind": "hf-dataset",
+      "group": "distill",
+      "priority": "medium",
+      "sampling_weight": 0.03355762225174645,
+      "max_examples": 783,
+      "hf_dataset": "nohurry/Opus-4.6-Reasoning-3000x-filtered",
+      "preferred_configs": [
+        "default"
+      ],
+      "preferred_splits": [
+        "train"
+      ],
+      "expected_schema": "problem-solution-reasoning",
+      "commercial_status": "review-required",
+      "normalization": {
+        "strategy": "problem-solution-reasoning",
+        "prompt_column": "problem",
+        "reasoning_column": "thinking",
+        "response_column": "solution",
+        "drop_explicit_reasoning_tags": false
+      },
+      "clean_examples_available": 783,
+      "clean_recovery_rate": 0.3915,
+      "search_ready_clean_examples_available": 783,
+      "estimated_tokens_per_example": 694.61
+    },
+    {
+      "id": "small-tool-trace-topup",
+      "kind": "hf-dataset",
+      "group": "distill",
+      "priority": "medium",
+      "sampling_weight": 0.017700252860755154,
+      "max_examples": 413,
+      "hf_dataset": "TeichAI/Claude-Opus-4.6-Reasoning-887x",
+      "preferred_configs": [
+        "default"
+      ],
+      "preferred_splits": [
+        "train"
+      ],
+      "expected_schema": "messages",
+      "commercial_status": "review-required",
+      "normalization": {
+        "strategy": "messages",
+        "assistant_role": "assistant",
+        "user_role": "user",
+        "drop_explicit_reasoning_tags": false
+      },
+      "clean_examples_available": 413,
+      "clean_recovery_rate": 0.51625,
+      "search_ready_clean_examples_available": 413,
+      "estimated_tokens_per_example": 1947.42
+    },
+    {
+      "id": "open-thoughts-breadth",
+      "kind": "hf-dataset",
+      "group": "open_reasoning",
+      "priority": "high",
+      "sampling_weight": 0.3000042857755111,
+      "max_examples": 7000,
+      "hf_dataset": "open-thoughts/OpenThoughts3-1.2M",
+      "preferred_configs": [
+        "default"
+      ],
+      "preferred_splits": [
+        "train"
+      ],
+      "expected_schema": "conversations",
+      "commercial_status": "open",
+      "normalization": {
+        "strategy": "conversations",
+        "conversation_column": "conversations",
+        "drop_explicit_reasoning_tags": false
+      },
+      "clean_examples_available": 7000,
+      "clean_recovery_rate": 1.0,
+      "search_ready_clean_examples_available": 7000,
+      "estimated_tokens_per_example": 13961.05
+    },
+    {
+      "id": "chat-quality-guardrail",
+      "kind": "hf-dataset",
+      "group": "chat_quality",
+      "priority": "high",
+      "sampling_weight": 0.2499892855612223,
+      "max_examples": 5833,
+      "hf_dataset": "mrm8488/FineTome-single-turn",
+      "preferred_configs": [
+        "default"
+      ],
+      "preferred_splits": [
+        "train"
+      ],
+      "expected_schema": "prompt-response",
+      "commercial_status": "open",
+      "normalization": {
+        "strategy": "prompt-response",
+        "prompt_column_candidates": [
+          "prompt",
+          "instruction",
+          "input"
+        ],
+        "response_column_candidates": [
+          "response",
+          "output",
+          "answer",
+          "completion"
+        ],
+        "drop_explicit_reasoning_tags": false
+      },
+      "clean_examples_available": 6000,
+      "clean_recovery_rate": 1.0,
+      "search_ready_clean_examples_available": 6000,
+      "estimated_tokens_per_example": 459.47
+    }
+  ],
+  "derived_from_manifest": "/home/khoa2807/working-sources/duanai/local-model/corpora/qwen35-workflow-trace-sft-round-1-manifest.json",
+  "derived_from_audit": "/home/khoa2807/working-sources/duanai/local-model/output/qwen35-workflow-trace-sft-prefix-audit.json"
+}

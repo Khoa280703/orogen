@@ -1,0 +1,82 @@
+{
+  "format": "qwen35-sft-search-wave-v1",
+  "wave_id": "phase-03-search-wave-2",
+  "description": "Exploit-biased confirmation batch after wave-1. Promote the winning 2048-context recipe while spending the other two GPUs on nearby confirmation lanes across learning-rate and longer-run stability.",
+  "base_config": "./configs/qwen35-workflow-trace-sft-round-1.json",
+  "train_jsonl": "./output/qwen35-workflow-trace-sft-search-ready-shard.jsonl",
+  "summary_output": "./output/qwen35-workflow-trace-sft-search-wave-2-summary.json",
+  "min_free_memory_mb": 8192,
+  "require_exclusive_gpu": true,
+  "ignored_process_names": ["sunshine"],
+  "lanes": [
+    {
+      "id": "gpu0-promote-winner-2048-epoch15",
+      "gpu_id": 0,
+      "seed": 42,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-2-gpu0-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-2-gpu0-adapter",
+        "optimization": {
+          "epochs": 1.5,
+          "learning_rate": 0.0002
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        },
+        "logging": {
+          "logging_steps": 10,
+          "save_steps": 100,
+          "save_total_limit": 3
+        }
+      },
+      "notes": "Primary exploit lane. Keeps the wave-1 winner recipe intact and simply scales it into a longer run on the full clean shard."
+    },
+    {
+      "id": "gpu1-replica-winner-2048-epoch15",
+      "gpu_id": 1,
+      "seed": 314159,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-2-gpu1-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-2-gpu1-adapter",
+        "optimization": {
+          "epochs": 1.5,
+          "learning_rate": 0.0002
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        },
+        "logging": {
+          "logging_steps": 10,
+          "save_steps": 100,
+          "save_total_limit": 3
+        }
+      },
+      "notes": "Exact-replica confirmation lane. Matches the promoted winner recipe and changes only seed so the next decision is not based on a single lucky trajectory."
+    },
+    {
+      "id": "gpu2-neighbor-mid-lr-2048-epoch15",
+      "gpu_id": 2,
+      "seed": 271828,
+      "max_sequence_length": 2048,
+      "report_output": "./output/qwen35-workflow-trace-sft-search-wave-2-gpu2-report.json",
+      "config_override": {
+        "output_dir": "./output/qwen35-workflow-trace-sft-search-wave-2-gpu2-adapter",
+        "optimization": {
+          "epochs": 1.5,
+          "learning_rate": 0.00015
+        },
+        "batching": {
+          "gradient_accumulation_steps": 16
+        },
+        "logging": {
+          "logging_steps": 10,
+          "save_steps": 100,
+          "save_total_limit": 3
+        }
+      },
+      "notes": "Near-neighbor confirmation lane. Keeps the winning recipe close while testing whether a slightly calmer LR generalizes better over the longer full-shard run."
+    }
+  ]
+}

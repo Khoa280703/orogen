@@ -1,0 +1,65 @@
+{
+  "format": "qwen35-sft-train-config-v1",
+  "round_id": "phase-03-round-1",
+  "base_model_path": "./models/qwen3.5-4b",
+  "tokenizer_path": "./models/qwen3.5-4b",
+  "data_manifest": "./corpora/qwen35-workflow-trace-sft-round-1-manifest.json",
+  "output_dir": "./output/qwen35-workflow-trace-sft-round-1-lora",
+  "trainer_stack": {
+    "name": "trl-sfttrainer-peft",
+    "response_only": true,
+    "packing": false
+  },
+  "sequence": {
+    "max_sequence_length": 8192,
+    "truncate_overflow": true,
+    "chat_template_path": "./models/qwen3.5-4b/chat_template.jinja"
+  },
+  "quantization": {
+    "load_in_4bit": true,
+    "bnb_4bit_quant_type": "nf4",
+    "bnb_4bit_use_double_quant": true,
+    "compute_dtype": "bfloat16"
+  },
+  "lora": {
+    "r": 64,
+    "alpha": 128,
+    "dropout": 0.05,
+    "bias": "none",
+    "target_modules": "all-linear"
+  },
+  "optimization": {
+    "epochs": 1.0,
+    "learning_rate": 0.0002,
+    "lr_scheduler_type": "cosine",
+    "warmup_ratio": 0.03,
+    "weight_decay": 0.01,
+    "max_grad_norm": 1.0
+  },
+  "batching": {
+    "num_gpus": 3,
+    "per_device_train_batch_size": 1,
+    "gradient_accumulation_steps": 16,
+    "gradient_checkpointing": true
+  },
+  "logging": {
+    "logging_steps": 10,
+    "save_steps": 200,
+    "save_total_limit": 2,
+    "eval_strategy": "no"
+  },
+  "preflight": {
+    "validate_manifest_command": "python3 ./scripts/validate-qwen35-workflow-trace-sft-manifest.py --manifest ./corpora/qwen35-workflow-trace-sft-round-1-manifest.json --output ./output/qwen35-workflow-trace-sft-manifest-summary.json",
+    "metadata_command": "python3 ./scripts/build-qwen35-workflow-trace-sft-source-metadata.py --manifest ./corpora/qwen35-workflow-trace-sft-round-1-manifest.json --output ./output/qwen35-workflow-trace-sft-source-metadata.json",
+    "runtime_setup_command": "./scripts/setup-qwen35-workflow-trace-sft-runtime.sh",
+    "runtime_check_command": "./.venv-qwen35-sft/bin/python ./scripts/check-qwen35-workflow-trace-sft-runtime.py --output ./output/qwen35-workflow-trace-sft-runtime-check.json",
+    "materialize_shard_command": "./.venv-qwen35-sft/bin/python ./scripts/build-qwen35-workflow-trace-sft-shard.py --manifest ./corpora/qwen35-workflow-trace-sft-round-1-manifest.json --metadata ./output/qwen35-workflow-trace-sft-source-metadata.json --output-jsonl ./output/qwen35-workflow-trace-sft-shard.jsonl --output-summary ./output/qwen35-workflow-trace-sft-shard-summary.json",
+    "prefix_audit_command": "./.venv-qwen35-sft/bin/python ./scripts/audit-qwen35-workflow-trace-sft-prefix.py --config ./configs/qwen35-workflow-trace-sft-round-1.json --train-jsonl ./output/qwen35-workflow-trace-sft-shard.jsonl --output ./output/qwen35-workflow-trace-sft-prefix-audit.json",
+    "recovery_probe_command": "./.venv-qwen35-sft/bin/python ./scripts/probe-qwen35-workflow-trace-sft-source-recovery.py --config ./configs/qwen35-workflow-trace-sft-round-1.json --manifest ./corpora/qwen35-workflow-trace-sft-round-1-manifest.json --input-jsonl ./output/qwen35-workflow-trace-sft-shard.jsonl --output ./output/qwen35-workflow-trace-sft-source-recovery-probe.json",
+    "search_ready_manifest_command": "./.venv-qwen35-sft/bin/python ./scripts/rebalance-qwen35-workflow-trace-sft-manifest.py --base-manifest ./corpora/qwen35-workflow-trace-sft-round-1-manifest.json --audit ./output/qwen35-workflow-trace-sft-prefix-audit.json --recovery-probe ./output/qwen35-workflow-trace-sft-source-recovery-probe.json --input-jsonl ./output/qwen35-workflow-trace-sft-shard.jsonl --output-manifest ./corpora/qwen35-workflow-trace-sft-round-1-search-ready-manifest.json --output-summary ./output/qwen35-workflow-trace-sft-search-ready-manifest-summary.json",
+    "search_ready_shard_command": "./.venv-qwen35-sft/bin/python ./scripts/build-qwen35-workflow-trace-sft-search-ready-shard.py --config ./configs/qwen35-workflow-trace-sft-round-1.json --manifest ./corpora/qwen35-workflow-trace-sft-round-1-search-ready-manifest.json --input-jsonl ./output/qwen35-workflow-trace-sft-shard.jsonl --output-jsonl ./output/qwen35-workflow-trace-sft-search-ready-shard.jsonl --output-summary ./output/qwen35-workflow-trace-sft-search-ready-shard-summary.json",
+    "search_ready_prefix_audit_command": "./.venv-qwen35-sft/bin/python ./scripts/audit-qwen35-workflow-trace-sft-prefix.py --config ./configs/qwen35-workflow-trace-sft-round-1.json --train-jsonl ./output/qwen35-workflow-trace-sft-search-ready-shard.jsonl --output ./output/qwen35-workflow-trace-sft-search-ready-prefix-audit.json",
+    "dry_run_command": "CUDA_VISIBLE_DEVICES=0 ./.venv-qwen35-sft/bin/python ./scripts/run-qwen35-workflow-trace-sft.py --dry-run --config ./configs/qwen35-workflow-trace-sft-round-1.json --train-jsonl ./output/qwen35-workflow-trace-sft-search-ready-shard.jsonl --output-dir ./output/qwen35-workflow-trace-sft-search-ready-dry-run --report-output ./output/qwen35-workflow-trace-sft-search-ready-dry-run-report.json --sample-limit 32 --max-steps 1 --max-sequence-length 2048 --gpu-id 0",
+    "search_wave_validate_command": "./.venv-qwen35-sft/bin/python ./scripts/run-qwen35-workflow-trace-sft-search-wave.py --config ./configs/qwen35-workflow-trace-sft-search-wave-1.json --validate-only"
+  }
+}
