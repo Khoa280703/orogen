@@ -18,6 +18,8 @@ pub async fn add_model_to_plan(
     .execute(pool)
     .await?;
 
+    sync_public_model_for_raw_model(pool, plan_id, model_id).await?;
+
     Ok(())
 }
 
@@ -30,6 +32,21 @@ pub async fn remove_model_from_plan(
     sqlx::query(
         r#"DELETE FROM plan_models
            WHERE plan_id = $1 AND model_id = $2"#,
+    )
+    .bind(plan_id)
+    .bind(model_id)
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        DELETE FROM plan_public_models ppm
+        USING models m, public_models pm
+        WHERE ppm.plan_id = $1
+          AND m.id = $2
+          AND pm.slug = m.slug
+          AND ppm.public_model_id = pm.id
+        "#,
     )
     .bind(plan_id)
     .bind(model_id)
@@ -57,6 +74,11 @@ pub async fn set_plan_models(
         .execute(pool)
         .await?;
 
+    sqlx::query("DELETE FROM plan_public_models WHERE plan_id = $1")
+        .bind(plan_id)
+        .execute(pool)
+        .await?;
+
     // Insert new associations
     for model_id in model_ids {
         sqlx::query(
@@ -67,7 +89,32 @@ pub async fn set_plan_models(
         .bind(model_id)
         .execute(pool)
         .await?;
+
+        sync_public_model_for_raw_model(pool, plan_id, model_id).await?;
     }
+
+    Ok(())
+}
+
+async fn sync_public_model_for_raw_model(
+    pool: &PgPool,
+    plan_id: i32,
+    model_id: i32,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO plan_public_models (plan_id, public_model_id)
+        SELECT $1, pm.id
+        FROM models m
+        JOIN public_models pm ON pm.slug = m.slug
+        WHERE m.id = $2
+        ON CONFLICT (plan_id, public_model_id) DO NOTHING
+        "#,
+    )
+    .bind(plan_id)
+    .bind(model_id)
+    .execute(pool)
+    .await?;
 
     Ok(())
 }

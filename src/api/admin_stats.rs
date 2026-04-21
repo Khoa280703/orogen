@@ -23,6 +23,8 @@ pub struct UsageLogsQuery {
     pub status: Option<String>,
     #[serde(default)]
     pub model: Option<String>,
+    #[serde(default)]
+    pub provider: Option<String>,
 }
 
 fn default_days() -> i32 {
@@ -55,6 +57,13 @@ pub struct DailyUsage {
     pub errors: i64,
 }
 
+#[derive(Debug, Serialize)]
+pub struct UsageLogFilterOptions {
+    pub statuses: Vec<String>,
+    pub models: Vec<String>,
+    pub providers: Vec<String>,
+}
+
 /// Get stats overview
 pub async fn get_stats_overview(
     axum::extract::State(state): axum::extract::State<AppState>,
@@ -63,13 +72,12 @@ pub async fn get_stats_overview(
     let (total, active, requests, errors) = usage_logs::get_stats_overview(&db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
-    let total_conversations: i64 =
-        sqlx::query_scalar::<_, i64>(
-            r#"SELECT COUNT(*)::BIGINT FROM conversations WHERE active = true"#,
-        )
-            .fetch_one(db)
-            .await
-            .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let total_conversations: i64 = sqlx::query_scalar::<_, i64>(
+        r#"SELECT COUNT(*)::BIGINT FROM conversations WHERE active = true"#,
+    )
+    .fetch_one(db)
+    .await
+    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
     let total_image_generations: i64 =
         sqlx::query_scalar::<_, i64>(r#"SELECT COUNT(*)::BIGINT FROM image_generations"#)
             .fetch_one(db)
@@ -126,16 +134,28 @@ pub async fn get_usage_logs(
         params.search.as_deref(),
         params.status.as_deref(),
         params.model.as_deref(),
+        params.provider.as_deref(),
     )
-        .await
-        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    .await
+    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let count = usage_logs::get_usage_log_count(
         &db,
         params.search.as_deref(),
         params.status.as_deref(),
         params.model.as_deref(),
+        params.provider.as_deref(),
     )
+    .await
+    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let status_options = usage_logs::list_usage_log_statuses(&db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let model_options = usage_logs::list_usage_log_models(&db)
+        .await
+        .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+    let provider_options = usage_logs::list_usage_log_providers(&db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -144,6 +164,11 @@ pub async fn get_usage_logs(
         "total": count,
         "offset": offset,
         "limit": limit,
-        "page": page
+        "page": page,
+        "filters": UsageLogFilterOptions {
+            statuses: status_options,
+            models: model_options,
+            providers: provider_options,
+        }
     })))
 }

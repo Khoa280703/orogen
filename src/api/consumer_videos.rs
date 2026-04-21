@@ -1,14 +1,18 @@
-use axum::{Json, extract::{Extension, State}};
+use axum::{
+    Json,
+    extract::{Extension, State},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::AppState;
+use crate::account::types::PROVIDER_GROK;
 use crate::api::chat_completions::{duration_to_latency_ms, record_usage};
 use crate::api::consumer_api_support::{build_user_usage_context, mark_account_success};
 use crate::api::plan_enforcement::{REQUEST_KIND_VIDEO, enforce_user_plan_access};
 use crate::error::AppError;
-use crate::grok::media_response_parser::parse_video_generation_body;
 use crate::grok::client::GrokRequestError;
+use crate::grok::media_response_parser::parse_video_generation_body;
 use crate::grok::types::GrokRequest;
 use crate::middleware::jwt_auth::JwtUser;
 use crate::services::proxy_failover;
@@ -71,24 +75,41 @@ pub async fn generate_videos(
     let trimmed_image_url = body.image_url.as_deref().map(str::trim).unwrap_or_default();
     let trimmed_prompt = body.prompt.as_deref().map(str::trim).unwrap_or_default();
     if trimmed_image_url.is_empty() && trimmed_prompt.is_empty() {
-        return Err(AppError::BadRequest("prompt is required when image_url is empty".into()));
+        return Err(AppError::BadRequest(
+            "prompt is required when image_url is empty".into(),
+        ));
     }
 
-    let requested_model = body.model.clone().unwrap_or_else(|| DEFAULT_VIDEO_MODEL.to_string());
-    let plan_id =
-        enforce_user_plan_access(&state.db, user.user_id, REQUEST_KIND_VIDEO, &requested_model).await?;
+    let requested_model = body
+        .model
+        .clone()
+        .unwrap_or_else(|| DEFAULT_VIDEO_MODEL.to_string());
+    let plan_id = enforce_user_plan_access(
+        &state.db,
+        user.user_id,
+        REQUEST_KIND_VIDEO,
+        &requested_model,
+    )
+    .await?;
     let usage = {
-        let mut usage =
-            build_user_usage_context(user.user_id, requested_model.clone(), REQUEST_KIND_VIDEO);
+        let mut usage = build_user_usage_context(
+            user.user_id,
+            PROVIDER_GROK.to_string(),
+            requested_model.clone(),
+            REQUEST_KIND_VIDEO,
+        );
         usage.plan_id = Some(plan_id);
         usage
     };
 
-    let account = state.pool.get_current().await.ok_or(AppError::NoAccounts)?;
+    let account = state
+        .pool
+        .get_current_for_provider(PROVIDER_GROK)
+        .await
+        .ok_or(AppError::NoAccounts)?;
     let start = std::time::Instant::now();
     match run_video_generation_flow(&state, &account, &body, &requested_model).await {
         Ok((raw_body, prepared)) => {
-            state.pool.mark_success().await;
             mark_account_success(&state.db, account.id).await;
             record_usage(
                 &state,
@@ -102,21 +123,34 @@ pub async fn generate_videos(
             Ok(Json(build_video_generation_response(raw_body, prepared)))
         }
         Err(GrokRequestError::ProxyFailed(message)) => {
-            if let Some(next) = proxy_failover::deactivate_failed_proxy(&state, &account, &message).await {
-                let (raw_body, prepared) = run_video_generation_flow(&state, &next, &body, &requested_model)
-                    .await
-                    .map_err(|error| AppError::GrokApi(error.to_string()))?;
-                state.pool.mark_success().await;
-                mark_account_success(&state.db, next.id).await;
-                record_usage(
-                    &state,
-                    &usage,
-                    next.id,
-                    "success",
-                    duration_to_latency_ms(start.elapsed()),
-                )
-                .await;
-                Ok(Json(build_video_generation_response(raw_body, prepared)))
+            if let Some(next) =
+                proxy_failover::deactivate_failed_proxy(&state, &account, &message).await
+            {
+                match run_video_generation_flow(&state, &next, &body, &requested_model).await {
+                    Ok((raw_body, prepared)) => {
+                        mark_account_success(&state.db, next.id).await;
+                        record_usage(
+                            &state,
+                            &usage,
+                            next.id,
+                            "success",
+                            duration_to_latency_ms(start.elapsed()),
+                        )
+                        .await;
+                        Ok(Json(build_video_generation_response(raw_body, prepared)))
+                    }
+                    Err(retry_error) => {
+                        record_usage(
+                            &state,
+                            &usage,
+                            next.id,
+                            crate::api::chat_completions::request_error_status(&retry_error),
+                            duration_to_latency_ms(start.elapsed()),
+                        )
+                        .await;
+                        Err(AppError::GrokApi(retry_error.to_string()))
+                    }
+                }
             } else {
                 record_usage(
                     &state,
@@ -137,20 +171,31 @@ pub async fn generate_videos(
             )
             .await
             {
-                let (raw_body, prepared) = run_video_generation_flow(&state, &next, &body, &requested_model)
-                    .await
-                    .map_err(|error| AppError::GrokApi(error.to_string()))?;
-                state.pool.mark_success().await;
-                mark_account_success(&state.db, next.id).await;
-                record_usage(
-                    &state,
-                    &usage,
-                    next.id,
-                    "success",
-                    duration_to_latency_ms(start.elapsed()),
-                )
-                .await;
-                Ok(Json(build_video_generation_response(raw_body, prepared)))
+                match run_video_generation_flow(&state, &next, &body, &requested_model).await {
+                    Ok((raw_body, prepared)) => {
+                        mark_account_success(&state.db, next.id).await;
+                        record_usage(
+                            &state,
+                            &usage,
+                            next.id,
+                            "success",
+                            duration_to_latency_ms(start.elapsed()),
+                        )
+                        .await;
+                        Ok(Json(build_video_generation_response(raw_body, prepared)))
+                    }
+                    Err(retry_error) => {
+                        record_usage(
+                            &state,
+                            &usage,
+                            next.id,
+                            crate::api::chat_completions::request_error_status(&retry_error),
+                            duration_to_latency_ms(start.elapsed()),
+                        )
+                        .await;
+                        Err(AppError::GrokApi(retry_error.to_string()))
+                    }
+                }
             } else {
                 record_usage(
                     &state,
@@ -168,7 +213,7 @@ pub async fn generate_videos(
                 let _ = crate::db::account_sessions::mark_session_expired(
                     &state.db,
                     id,
-                    "Upstream Grok session expired or cookies are invalid.",
+                    "Upstream account credentials expired or are invalid.",
                 )
                 .await;
             }
@@ -202,12 +247,13 @@ async fn run_video_generation_flow(
     body: &GenerateVideoRequest,
     requested_model: &str,
 ) -> Result<(String, PreparedVideoRequest), GrokRequestError> {
+    let cookies = account.grok_cookies().map_err(GrokRequestError::Network)?;
     let proxy_ref = account.proxy_url.as_ref();
-    let parent_post_id = create_parent_post(state, &account.cookies, proxy_ref, body).await?;
+    let parent_post_id = create_parent_post(state, cookies, proxy_ref, body).await?;
     let prepared = prepare_video_request(body, requested_model.to_string(), parent_post_id);
     let raw_body = state
         .grok
-        .send_request(&account.cookies, &prepared.payload, proxy_ref)
+        .send_request(cookies, &prepared.payload, proxy_ref)
         .await?;
     Ok((raw_body, prepared))
 }
@@ -218,8 +264,16 @@ async fn create_parent_post(
     proxy_url: Option<&String>,
     body: &GenerateVideoRequest,
 ) -> Result<String, GrokRequestError> {
-    let trimmed_image_url = body.image_url.as_deref().map(str::trim).filter(|value| !value.is_empty());
-    let trimmed_prompt = body.prompt.as_deref().map(str::trim).filter(|value| !value.is_empty());
+    let trimmed_image_url = body
+        .image_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let trimmed_prompt = body
+        .prompt
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
 
     let create_payload = if let Some(image_url) = trimmed_image_url {
         MediaCreatePostRequest {
@@ -237,11 +291,16 @@ async fn create_parent_post(
 
     let raw_body = state
         .grok
-        .send_json_request(GROK_MEDIA_CREATE_POST_URL, cookies, &create_payload, proxy_url)
-        .await
-        ?;
-    let response: MediaCreatePostResponse = serde_json::from_str(&raw_body)
-        .map_err(|error| GrokRequestError::Network(format!("Invalid media post response: {error}")))?;
+        .send_json_request(
+            GROK_MEDIA_CREATE_POST_URL,
+            cookies,
+            &create_payload,
+            proxy_url,
+        )
+        .await?;
+    let response: MediaCreatePostResponse = serde_json::from_str(&raw_body).map_err(|error| {
+        GrokRequestError::Network(format!("Invalid media post response: {error}"))
+    })?;
     Ok(response.post.id)
 }
 
@@ -250,14 +309,33 @@ fn prepare_video_request(
     model_name: String,
     parent_post_id: String,
 ) -> PreparedVideoRequest {
-    let trimmed_image_url = body.image_url.as_deref().map(str::trim).filter(|value| !value.is_empty());
-    let trimmed_prompt = body.prompt.as_deref().map(str::trim).filter(|value| !value.is_empty()).unwrap_or("");
+    let trimmed_image_url = body
+        .image_url
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let trimmed_prompt = body
+        .prompt
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("");
     let mode = body.mode.clone().unwrap_or_else(|| {
-        if trimmed_prompt.is_empty() { "normal".to_string() } else { "custom".to_string() }
+        if trimmed_prompt.is_empty() {
+            "normal".to_string()
+        } else {
+            "custom".to_string()
+        }
     });
-    let aspect_ratio = body.aspect_ratio.clone().unwrap_or_else(|| "2:3".to_string());
+    let aspect_ratio = body
+        .aspect_ratio
+        .clone()
+        .unwrap_or_else(|| "2:3".to_string());
     let duration_seconds = body.duration_seconds.unwrap_or(6);
-    let resolution = body.resolution.clone().unwrap_or_else(|| "480p".to_string());
+    let resolution = body
+        .resolution
+        .clone()
+        .unwrap_or_else(|| "480p".to_string());
 
     let message = if let Some(image_url) = trimmed_image_url {
         format!("{image_url} {trimmed_prompt} --mode={mode}")

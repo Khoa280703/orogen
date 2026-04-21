@@ -115,11 +115,11 @@ pub async fn update_title(
     sqlx::query(
         r#"UPDATE conversations SET title = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3"#,
     )
-        .bind(title)
-        .bind(id)
-        .bind(user_id)
-        .execute(pool)
-        .await?;
+    .bind(title)
+    .bind(id)
+    .bind(user_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

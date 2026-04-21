@@ -22,7 +22,7 @@ pub enum AppError {
 impl std::fmt::Display for AppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NoAccounts => write!(f, "No Grok accounts configured"),
+            Self::NoAccounts => write!(f, "No upstream accounts configured"),
             Self::GrokApi(msg) => write!(f, "Grok API error: {msg}"),
             Self::Internal(msg) => write!(f, "Internal error: {msg}"),
             Self::BadRequest(msg) => write!(f, "{msg}"),

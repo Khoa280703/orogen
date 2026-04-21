@@ -16,7 +16,7 @@ pub struct ChatMessage {
 pub enum ChatStreamEvent {
     Token(String),
     Thinking(String),
-    Error(String),
+    Error(ProviderError),
     Done,
 }
 
@@ -26,12 +26,35 @@ pub struct GeneratedAsset {
     pub url: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderAuthMode {
+    CookieSession,
+    OAuthToken,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ProviderCapabilities {
+    pub auth_mode: ProviderAuthMode,
+    pub supports_chat_streaming: bool,
+    pub supports_proxy: bool,
+    pub supports_responses_api: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderRoutingDisposition {
+    RetryNextAccount,
+    ExpireAccount,
+    DeactivateProxy,
+    DoNotRetry,
+}
+
 #[derive(Debug, Clone)]
 pub enum ProviderError {
     RateLimited,
     Unauthorized,
     CfBlocked,
     ProxyFailed(String),
+    UpstreamTransient(String),
     Network(String),
 }
 
@@ -42,8 +65,36 @@ impl Display for ProviderError {
             Self::Unauthorized => write!(f, "Unauthorized"),
             Self::CfBlocked => write!(f, "Cloudflare blocked"),
             Self::ProxyFailed(message) => write!(f, "{message}"),
+            Self::UpstreamTransient(message) => write!(f, "{message}"),
             Self::Network(message) => write!(f, "{message}"),
         }
+    }
+}
+
+impl ProviderError {
+    pub fn routing_disposition(&self) -> ProviderRoutingDisposition {
+        match self {
+            Self::RateLimited => ProviderRoutingDisposition::RetryNextAccount,
+            Self::Unauthorized => ProviderRoutingDisposition::ExpireAccount,
+            Self::CfBlocked | Self::ProxyFailed(_) => ProviderRoutingDisposition::DeactivateProxy,
+            Self::UpstreamTransient(_) => ProviderRoutingDisposition::RetryNextAccount,
+            Self::Network(_) => ProviderRoutingDisposition::DoNotRetry,
+        }
+    }
+
+    pub fn usage_status(&self) -> &'static str {
+        match self {
+            Self::RateLimited => "rate_limited",
+            Self::Unauthorized => "unauthorized",
+            Self::CfBlocked => "cf_blocked",
+            Self::ProxyFailed(_) => "proxy_failed",
+            Self::UpstreamTransient(_) => "upstream_transient",
+            Self::Network(_) => "error",
+        }
+    }
+
+    pub fn should_mark_account_unhealthy(&self) -> bool {
+        matches!(self, Self::RateLimited | Self::CfBlocked | Self::Network(_))
     }
 }
 
@@ -68,7 +119,6 @@ impl From<GeneratedImageAsset> for GeneratedAsset {
     }
 }
 
-
 impl From<ProviderError> for AppError {
     fn from(value: ProviderError) -> Self {
         match value {
@@ -76,6 +126,7 @@ impl From<ProviderError> for AppError {
             ProviderError::Unauthorized => AppError::GrokApi("Unauthorized".into()),
             ProviderError::CfBlocked => AppError::GrokApi("Cloudflare blocked".into()),
             ProviderError::ProxyFailed(message) => AppError::GrokApi(message),
+            ProviderError::UpstreamTransient(message) => AppError::GrokApi(message),
             ProviderError::Network(message) => AppError::GrokApi(message),
         }
     }

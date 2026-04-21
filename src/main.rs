@@ -35,6 +35,8 @@ use crate::cli_chat::CliChat;
 use crate::config::{AppConfig, load_config};
 use crate::grok::client::GrokClient;
 use crate::providers::ProviderRegistry;
+use crate::services::codex_client::CodexClient;
+use crate::services::codex_oauth::CodexLoginSession;
 
 pub struct AppState {
     pub config: AppConfig,
@@ -48,6 +50,8 @@ pub struct AppState {
     pub api_keys: Arc<RwLock<std::collections::HashSet<String>>>,
     /// Provider registry for future consumer APIs
     pub providers: ProviderRegistry,
+    /// Native Codex login sessions keyed by generated session id
+    pub codex_login_sessions: Arc<RwLock<HashMap<String, CodexLoginSession>>>,
 }
 
 impl Clone for AppState {
@@ -60,6 +64,7 @@ impl Clone for AppState {
             db: self.db.clone(),
             api_keys: self.api_keys.clone(),
             providers: self.providers.clone(),
+            codex_login_sessions: self.codex_login_sessions.clone(),
         }
     }
 }
@@ -139,11 +144,18 @@ async fn start_server(
         tracing::warn!("Migration warning: {}", e);
     }
 
-    let pool = AccountPool::new(db.clone());
     let grok = GrokClient::new()
         .await
         .expect("Failed to create Grok client");
-    let providers = ProviderRegistry::with_grok(grok.clone());
+    let providers = ProviderRegistry::new(
+        grok.clone(),
+        CodexClient::new(
+            config.codex_upstream_base_url.clone(),
+            config.codex_upstream_originator.clone(),
+            config.codex_upstream_user_agent.clone(),
+        ),
+    );
+    let pool = AccountPool::new(db.clone(), config.clone(), providers.clone());
 
     // Load API keys from config + database
     let mut api_keys = config.all_keys();
@@ -198,6 +210,7 @@ async fn start_server(
         db,
         api_keys: Arc::new(RwLock::new(api_keys)),
         providers,
+        codex_login_sessions: Arc::new(RwLock::new(HashMap::new())),
     };
 
     let app = api::router(state.clone())

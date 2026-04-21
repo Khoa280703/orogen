@@ -1,5 +1,11 @@
 use serde_json::Value;
 
+use crate::account::types::CREDENTIAL_TYPE_GROK_COOKIES;
+use crate::account::types::{
+    ROUTING_STATE_AUTH_INVALID, ROUTING_STATE_CANDIDATE, ROUTING_STATE_HEALTHY,
+};
+use crate::db::account_credentials;
+
 pub const SESSION_STATUS_UNKNOWN: &str = "unknown";
 pub const SESSION_STATUS_HEALTHY: &str = "healthy";
 pub const SESSION_STATUS_EXPIRED: &str = "expired";
@@ -12,6 +18,9 @@ pub async fn mark_profile_sync_success(
     cookies: &Value,
     profile_dir: &str,
 ) -> Result<(), sqlx::Error> {
+    account_credentials::upsert_account_credential(pool, id, CREDENTIAL_TYPE_GROK_COOKIES, cookies)
+        .await?;
+
     sqlx::query(
         r#"
         UPDATE accounts
@@ -23,7 +32,10 @@ pub async fn mark_profile_sync_success(
             session_checked_at = NOW(),
             cookies_synced_at = NOW(),
             active = true,
-            fail_count = 0
+            fail_count = 0,
+            routing_state = $5,
+            cooldown_until = NULL,
+            last_routing_error = NULL
         WHERE id = $4
         "#,
     )
@@ -31,6 +43,7 @@ pub async fn mark_profile_sync_success(
     .bind(profile_dir)
     .bind(SESSION_STATUS_HEALTHY)
     .bind(id)
+    .bind(ROUTING_STATE_HEALTHY)
     .execute(pool)
     .await?;
 
@@ -76,13 +89,17 @@ pub async fn mark_session_expired(
             active = false,
             session_status = $1,
             session_error = $2,
-            session_checked_at = NOW()
+            session_checked_at = NOW(),
+            routing_state = $4,
+            cooldown_until = NULL,
+            last_routing_error = $2
         WHERE id = $3
         "#,
     )
     .bind(SESSION_STATUS_EXPIRED)
     .bind(message)
     .bind(id)
+    .bind(ROUTING_STATE_AUTH_INVALID)
     .execute(pool)
     .await?;
 
@@ -97,12 +114,16 @@ pub async fn mark_session_healthy(pool: &sqlx::PgPool, id: i32) -> Result<(), sq
         SET
             session_status = $1,
             session_error = NULL,
-            session_checked_at = NOW()
+            session_checked_at = NOW(),
+            routing_state = $3,
+            cooldown_until = NULL,
+            last_routing_error = NULL
         WHERE id = $2
         "#,
     )
     .bind(SESSION_STATUS_HEALTHY)
     .bind(id)
+    .bind(ROUTING_STATE_HEALTHY)
     .execute(pool)
     .await?;
 
@@ -126,6 +147,10 @@ pub async fn mark_needs_login(
             session_error = CASE
                 WHEN cookies_synced_at IS NULL THEN 'Login required before first sync.'
                 ELSE session_error
+            END,
+            routing_state = CASE
+                WHEN cookies_synced_at IS NULL THEN $4
+                ELSE routing_state
             END
         WHERE id = $3
         "#,
@@ -133,6 +158,7 @@ pub async fn mark_needs_login(
     .bind(profile_dir)
     .bind(SESSION_STATUS_NEEDS_LOGIN)
     .bind(id)
+    .bind(ROUTING_STATE_CANDIDATE)
     .execute(pool)
     .await?;
 

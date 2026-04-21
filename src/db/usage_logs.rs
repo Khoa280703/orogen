@@ -7,6 +7,7 @@ pub struct UsageLog {
     pub id: Option<i64>,
     pub api_key_id: Option<i32>,
     pub account_id: Option<i32>,
+    pub provider_slug: Option<String>,
     pub model: Option<String>,
     pub status: Option<String>,
     pub latency_ms: Option<i32>,
@@ -19,6 +20,7 @@ pub struct UsageLogWithUser {
     pub api_key_id: Option<i32>,
     pub account_id: Option<i32>,
     pub user_id: Option<i32>,
+    pub provider_slug: Option<String>,
     pub model: String,
     pub status_code: i32,
     pub latency_ms: i32,
@@ -31,10 +33,11 @@ impl Serialize for UsageLog {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("UsageLog", 7)?;
+        let mut state = serializer.serialize_struct("UsageLog", 8)?;
         state.serialize_field("id", &self.id)?;
         state.serialize_field("api_key_id", &self.api_key_id)?;
         state.serialize_field("account_id", &self.account_id)?;
+        state.serialize_field("provider_slug", &self.provider_slug)?;
         state.serialize_field("model", &self.model)?;
         state.serialize_field("status", &self.status)?;
         state.serialize_field("latency_ms", &self.latency_ms)?;
@@ -61,6 +64,7 @@ pub async fn log_request(
     api_key_id: Option<i32>,
     user_id: Option<i32>,
     account_id: Option<i32>,
+    provider_slug: Option<&str>,
     model: Option<&str>,
     request_kind: Option<&str>,
     status: &str,
@@ -68,14 +72,15 @@ pub async fn log_request(
 ) -> Result<i64, sqlx::Error> {
     let result = sqlx::query_scalar::<_, i64>(
         r#"
-        INSERT INTO usage_logs (api_key_id, user_id, account_id, model, request_kind, status, latency_ms)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO usage_logs (api_key_id, user_id, account_id, provider_slug, model, request_kind, status, latency_ms)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
         "#,
     )
     .bind(api_key_id)
     .bind(user_id)
     .bind(account_id)
+    .bind(provider_slug)
     .bind(model)
     .bind(request_kind)
     .bind(status)
@@ -94,20 +99,18 @@ pub async fn get_usage_logs(
     search: Option<&str>,
     status: Option<&str>,
     model: Option<&str>,
+    provider: Option<&str>,
 ) -> Result<Vec<UsageLog>, sqlx::Error> {
     let mut builder = QueryBuilder::<Postgres>::new(
-        "SELECT id, api_key_id, account_id, model, status, latency_ms, created_at FROM usage_logs",
+        "SELECT id, api_key_id, account_id, provider_slug, model, status, latency_ms, created_at FROM usage_logs",
     );
-    push_usage_log_filters(&mut builder, search, status, model);
+    push_usage_log_filters(&mut builder, search, status, model, provider);
     builder.push(" ORDER BY created_at DESC LIMIT ");
     builder.push_bind(limit);
     builder.push(" OFFSET ");
     builder.push_bind(offset);
 
-    builder
-        .build_query_as::<UsageLog>()
-        .fetch_all(pool)
-        .await
+    builder.build_query_as::<UsageLog>().fetch_all(pool).await
 }
 
 /// Get total count of usage logs
@@ -116,13 +119,56 @@ pub async fn get_usage_log_count(
     search: Option<&str>,
     status: Option<&str>,
     model: Option<&str>,
+    provider: Option<&str>,
 ) -> Result<i64, sqlx::Error> {
     let mut builder =
         QueryBuilder::<Postgres>::new("SELECT COUNT(*)::BIGINT as count FROM usage_logs");
-    push_usage_log_filters(&mut builder, search, status, model);
+    push_usage_log_filters(&mut builder, search, status, model, provider);
 
     let row = builder.build().fetch_one(pool).await?;
     Ok(row.get::<i64, _>("count"))
+}
+
+pub async fn list_usage_log_models(pool: &sqlx::PgPool) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT DISTINCT model
+        FROM usage_logs
+        WHERE model IS NOT NULL
+          AND BTRIM(model) <> ''
+        ORDER BY model
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn list_usage_log_providers(pool: &sqlx::PgPool) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT DISTINCT provider_slug
+        FROM usage_logs
+        WHERE provider_slug IS NOT NULL
+          AND BTRIM(provider_slug) <> ''
+        ORDER BY provider_slug
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+}
+
+pub async fn list_usage_log_statuses(pool: &sqlx::PgPool) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar::<_, String>(
+        r#"
+        SELECT DISTINCT status
+        FROM usage_logs
+        WHERE status IS NOT NULL
+          AND BTRIM(status) <> ''
+        ORDER BY status
+        "#,
+    )
+    .fetch_all(pool)
+    .await
 }
 
 fn push_usage_log_filters(
@@ -130,15 +176,16 @@ fn push_usage_log_filters(
     search: Option<&str>,
     status: Option<&str>,
     model: Option<&str>,
+    provider: Option<&str>,
 ) {
     let mut has_where = false;
 
     if let Some(search_value) = search.map(str::trim).filter(|value| !value.is_empty()) {
         let pattern = format!("%{}%", search_value);
         push_filter_prefix(builder, &mut has_where);
-        builder.push(
-            "(COALESCE(model, '') ILIKE ",
-        );
+        builder.push("(COALESCE(model, '') ILIKE ");
+        builder.push_bind(pattern.clone());
+        builder.push(" OR COALESCE(provider_slug, '') ILIKE ");
         builder.push_bind(pattern.clone());
         builder.push(" OR COALESCE(status, '') ILIKE ");
         builder.push_bind(pattern.clone());
@@ -165,6 +212,15 @@ fn push_usage_log_filters(
         push_filter_prefix(builder, &mut has_where);
         builder.push("model = ");
         builder.push_bind(model_value.to_string());
+    }
+
+    if let Some(provider_value) = provider
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "all")
+    {
+        push_filter_prefix(builder, &mut has_where);
+        builder.push("provider_slug = ");
+        builder.push_bind(provider_value.to_string());
     }
 }
 
@@ -252,7 +308,7 @@ pub async fn list_by_user(
 ) -> Result<Vec<UsageLogWithUser>, sqlx::Error> {
     let rows = sqlx::query(
         r#"
-        SELECT ul.id, ul.api_key_id, ul.account_id, COALESCE(ul.user_id, ak.user_id) as user_id, ul.model,
+        SELECT ul.id, ul.api_key_id, ul.account_id, COALESCE(ul.user_id, ak.user_id) as user_id, ul.provider_slug, ul.model,
                ul.status as status, ul.latency_ms, ul.created_at
         FROM usage_logs ul
         LEFT JOIN api_keys ak ON ul.api_key_id = ak.id
@@ -274,14 +330,27 @@ pub async fn list_by_user(
             api_key_id: r.get("api_key_id"),
             account_id: r.get("account_id"),
             user_id: r.get("user_id"),
+            provider_slug: r.get("provider_slug"),
             model: r.get::<Option<String>, _>("model").unwrap_or_default(),
-            status_code: r.get::<String, _>("status").parse().unwrap_or(200),
+            status_code: usage_status_to_status_code(&r.get::<String, _>("status")),
             latency_ms: r.get::<Option<i32>, _>("latency_ms").unwrap_or(0),
             created_at: r
                 .get::<Option<DateTime<Utc>>, _>("created_at")
                 .unwrap_or(Utc::now()),
         })
         .collect::<Vec<_>>())
+}
+
+fn usage_status_to_status_code(status: &str) -> i32 {
+    match status {
+        "success" => 200,
+        "unauthorized" => 401,
+        "cf_blocked" => 403,
+        "rate_limited" => 429,
+        "proxy_failed" => 502,
+        "service_unavailable" => 503,
+        _ => status.parse().unwrap_or(500),
+    }
 }
 
 /// Count usage by user for today

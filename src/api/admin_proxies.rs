@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::AppState;
 use crate::db::proxies;
 
+const ALLOWED_PROXY_SCHEMES: &[&str] = &["http", "https", "socks5", "socks5h"];
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProxyCreateRequest {
     pub url: String,
@@ -32,20 +34,39 @@ pub struct ProxyResponse {
     pub assigned_accounts: i32,
 }
 
-/// Validate proxy URL format: socks5h://user:pass@host:port
+/// Validate proxy URL format: http(s)://host:port or socks5(h)://user:pass@host:port
 fn validate_proxy_url(url: &str) -> bool {
-    if !url.starts_with("socks5h://") {
+    let trimmed = url.trim();
+    if trimmed.is_empty() || trimmed.len() > 500 {
         return false;
     }
-    // Must contain @ for credentials and : for port
-    if !url.contains('@') || !url.contains(':') {
+
+    let Some((scheme, remainder)) = trimmed.split_once("://") else {
+        return false;
+    };
+
+    if !ALLOWED_PROXY_SCHEMES.contains(&scheme) {
         return false;
     }
-    // Basic length check
-    url.len() <= 500
+
+    let authority = remainder.split('/').next().unwrap_or_default();
+    if authority.is_empty() {
+        return false;
+    }
+
+    let host_port = authority
+        .rsplit_once('@')
+        .map(|(_, host_port)| host_port)
+        .unwrap_or(authority);
+
+    let Some((host, port)) = host_port.rsplit_once(':') else {
+        return false;
+    };
+
+    !host.is_empty() && port.parse::<u16>().is_ok()
 }
 
-/// Mask proxy URL credentials for safe display: socks5h://user:***@host:port
+/// Mask proxy URL credentials for safe display while leaving auth-less proxies unchanged.
 fn mask_proxy_url(url: &str) -> String {
     if let Some(at_pos) = url.find('@') {
         if let Some(scheme_end) = url.find("://") {
@@ -58,15 +79,7 @@ fn mask_proxy_url(url: &str) -> String {
             }
         }
     }
-    // Fallback: mask everything after protocol
-    format!(
-        "{}***",
-        if let Some(end) = url.find("://") {
-            &url[..end + 3]
-        } else {
-            ""
-        }
-    )
+    url.to_string()
 }
 
 /// List all proxies (with masked URLs)
@@ -141,6 +154,41 @@ pub async fn update_proxy(
     .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(serde_json::json!({ "success": true })))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{mask_proxy_url, validate_proxy_url};
+
+    #[test]
+    fn accepts_http_and_socks_proxy_urls() {
+        assert!(validate_proxy_url("http://38.154.150.171:8800"));
+        assert!(validate_proxy_url("https://38.154.150.171:8800"));
+        assert!(validate_proxy_url("socks5://user:pass@38.154.150.171:8800"));
+        assert!(validate_proxy_url(
+            "socks5h://user:pass@38.154.150.171:8800"
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_proxy_urls() {
+        assert!(!validate_proxy_url("38.154.150.171:8800"));
+        assert!(!validate_proxy_url("ftp://38.154.150.171:8800"));
+        assert!(!validate_proxy_url("http://38.154.150.171"));
+        assert!(!validate_proxy_url("http://:8800"));
+    }
+
+    #[test]
+    fn masks_only_urls_with_credentials() {
+        assert_eq!(
+            mask_proxy_url("socks5h://user:pass@38.154.150.171:8800"),
+            "socks5h://user:***@38.154.150.171:8800"
+        );
+        assert_eq!(
+            mask_proxy_url("http://38.154.150.171:8800"),
+            "http://38.154.150.171:8800"
+        );
+    }
 }
 
 /// Delete a proxy

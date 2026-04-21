@@ -37,16 +37,13 @@ impl GrokClient {
             req = req.header(key, value);
         }
 
-        let resp = req
-            .send()
-            .await
-            .map_err(|e| {
-                if proxy_url.is_some() {
-                    GrokRequestError::ProxyFailed(format!("Proxy request failed: {e}"))
-                } else {
-                    GrokRequestError::Network(format!("Request failed: {e}"))
-                }
-            })?;
+        let resp = req.send().await.map_err(|e| {
+            if proxy_url.is_some() {
+                GrokRequestError::ProxyFailed(format!("Proxy request failed: {e}"))
+            } else {
+                GrokRequestError::Network(format!("Request failed: {e}"))
+            }
+        })?;
 
         let status = resp.status().as_u16();
         let text = resp
@@ -119,16 +116,13 @@ impl GrokClient {
             req = req.header(key, value);
         }
 
-        let resp = req
-            .send()
-            .await
-            .map_err(|e| {
-                if proxy_url.is_some() {
-                    GrokRequestError::ProxyFailed(format!("Proxy request failed: {e}"))
-                } else {
-                    GrokRequestError::Network(format!("Request failed: {e}"))
-                }
-            })?;
+        let resp = req.send().await.map_err(|e| {
+            if proxy_url.is_some() {
+                GrokRequestError::ProxyFailed(format!("Proxy request failed: {e}"))
+            } else {
+                GrokRequestError::Network(format!("Request failed: {e}"))
+            }
+        })?;
 
         let status = resp.status().as_u16();
         if status != 200 {
@@ -255,12 +249,14 @@ fn classify_response(status: u16, body: &str) -> Result<(), GrokRequestError> {
             tracing::warn!("401 unauthorized: {}", body_preview);
             Err(GrokRequestError::Unauthorized)
         }
-        400
-            if body_lower.contains("failed to look up session id")
-                || body_lower.contains("invalid-credentials")
-                || body_lower.contains("unauthenticated") =>
+        400 if body_lower.contains("failed to look up session id")
+            || body_lower.contains("invalid-credentials")
+            || body_lower.contains("unauthenticated") =>
         {
-            tracing::warn!("400 invalid session mapped to unauthorized: {}", body_preview);
+            tracing::warn!(
+                "400 invalid session mapped to unauthorized: {}",
+                body_preview
+            );
             Err(GrokRequestError::Unauthorized)
         }
         _ => {

@@ -61,8 +61,16 @@ pub async fn list_images(
 ) -> Result<Json<AdminImageListResponse>, (StatusCode, String)> {
     let search = query.search.as_deref().unwrap_or("").trim();
     let status = query.status.as_deref().unwrap_or("").trim();
-    let search_filter = if search.is_empty() { None } else { Some(format!("%{search}%")) };
-    let status_filter = if status.is_empty() { None } else { Some(status) };
+    let search_filter = if search.is_empty() {
+        None
+    } else {
+        Some(format!("%{search}%"))
+    };
+    let status_filter = if status.is_empty() {
+        None
+    } else {
+        Some(status)
+    };
 
     let items = sqlx::query(
         r#"
@@ -122,7 +130,10 @@ pub async fn get_image_detail(
     .fetch_optional(&state.db)
     .await
     .map_err(internal_error)?
-    .ok_or((StatusCode::NOT_FOUND, "Image generation not found".to_string()))?;
+    .ok_or((
+        StatusCode::NOT_FOUND,
+        "Image generation not found".to_string(),
+    ))?;
 
     Ok(Json(AdminImageDetail {
         id: row.get("id"),
@@ -134,7 +145,9 @@ pub async fn get_image_detail(
         status: row.get("status"),
         result_urls: row.get("result_urls"),
         error_message: row.get("error_message"),
-        created_at: row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at").map(|value| value.to_rfc3339()),
+        created_at: row
+            .get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at")
+            .map(|value| value.to_rfc3339()),
     }))
 }
 
@@ -149,7 +162,10 @@ pub async fn delete_image(
         .map_err(internal_error)?;
 
     if result.rows_affected() == 0 {
-        return Err((StatusCode::NOT_FOUND, "Image generation not found".to_string()));
+        return Err((
+            StatusCode::NOT_FOUND,
+            "Image generation not found".to_string(),
+        ));
     }
 
     Ok(Json(serde_json::json!({ "success": true })))
@@ -161,7 +177,10 @@ fn default_limit() -> i64 {
 
 fn map_list_item(row: sqlx::postgres::PgRow) -> AdminImageListItem {
     let result_urls: Value = row.get("result_urls");
-    let image_count = result_urls.as_array().map(|items| items.len() as i64).unwrap_or(0);
+    let image_count = result_urls
+        .as_array()
+        .map(|items| items.len() as i64)
+        .unwrap_or(0);
 
     AdminImageListItem {
         id: row.get("id"),
@@ -173,10 +192,15 @@ fn map_list_item(row: sqlx::postgres::PgRow) -> AdminImageListItem {
         status: row.get("status"),
         image_count,
         error_message: row.get("error_message"),
-        created_at: row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at").map(|value| value.to_rfc3339()),
+        created_at: row
+            .get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at")
+            .map(|value| value.to_rfc3339()),
     }
 }
 
 fn internal_error(error: sqlx::Error) -> (StatusCode, String) {
-    (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {error}"))
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        format!("Database error: {error}"),
+    )
 }

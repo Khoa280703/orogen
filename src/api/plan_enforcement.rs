@@ -6,7 +6,7 @@ use sqlx::PgPool;
 
 use crate::db::{
     count_today_by_api_key, count_today_by_api_key_scope, count_today_by_user,
-    count_today_by_user_scope, is_model_allowed_for_plan,
+    count_today_by_user_scope,
 };
 use crate::error::AppError;
 
@@ -78,7 +78,7 @@ fn quota_message(request_kind: &str, model_slug: &str) -> String {
 }
 
 async fn ensure_model_exists(pool: &PgPool, model_slug: &str) -> Result<(), AppError> {
-    if crate::db::models::get_model_by_slug(pool, model_slug)
+    if crate::db::public_model_routes::get_public_model_route_by_slug(pool, model_slug)
         .await
         .is_none()
     {
@@ -152,7 +152,10 @@ async fn enforce_api_key_limit(
                 .map_err(|e| AppError::Internal(format!("Database error: {e}")))?;
 
         if is_limit_exceeded(Some(limit), today_count) {
-            return Err(AppError::QuotaExceeded(quota_message(request_kind, model_slug)));
+            return Err(AppError::QuotaExceeded(quota_message(
+                request_kind,
+                model_slug,
+            )));
         }
 
         return Ok(());
@@ -188,7 +191,10 @@ async fn enforce_user_limit(
                 .map_err(|e| AppError::Internal(format!("Database error: {e}")))?;
 
         if is_limit_exceeded(Some(limit), today_count) {
-            return Err(AppError::QuotaExceeded(quota_message(request_kind, model_slug)));
+            return Err(AppError::QuotaExceeded(quota_message(
+                request_kind,
+                model_slug,
+            )));
         }
 
         return Ok(());
@@ -221,7 +227,13 @@ pub async fn enforce_plan_access(
     if let Some(plan_id) = api_key_plan_id {
         let plan = get_plan_rule_by_id(pool, plan_id).await?;
 
-        if !is_model_allowed_for_plan(pool, plan.plan_id, model_slug).await {
+        if !crate::db::public_models::is_public_model_allowed_for_plan(
+            pool,
+            plan.plan_id,
+            model_slug,
+        )
+        .await
+        {
             return Err(AppError::ModelNotAllowed);
         }
 
@@ -239,7 +251,9 @@ pub async fn enforce_plan_access(
 
     let plan = get_user_plan_rule(pool, user_id).await?;
 
-    if !is_model_allowed_for_plan(pool, plan.plan_id, model_slug).await {
+    if !crate::db::public_models::is_public_model_allowed_for_plan(pool, plan.plan_id, model_slug)
+        .await
+    {
         return Err(AppError::ModelNotAllowed);
     }
 
@@ -256,7 +270,9 @@ pub async fn enforce_user_plan_access(
 
     let plan = get_user_plan_rule(pool, user_id).await?;
 
-    if !is_model_allowed_for_plan(pool, plan.plan_id, model_slug).await {
+    if !crate::db::public_models::is_public_model_allowed_for_plan(pool, plan.plan_id, model_slug)
+        .await
+    {
         return Err(AppError::ModelNotAllowed);
     }
 

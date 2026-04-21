@@ -72,7 +72,9 @@ pub async fn generate_images(
     {
         model
     } else {
-        return Err(AppError::Internal("No active image model is available".into()));
+        return Err(AppError::Internal(
+            "No active image model is available".into(),
+        ));
     };
     let model = resolved_model.slug.clone();
     let plan_id =
@@ -91,21 +93,35 @@ pub async fn generate_images(
             ))
         })?;
     let usage = {
-        let mut usage =
-            build_user_usage_context(user.user_id, model.clone(), REQUEST_KIND_IMAGE);
+        let mut usage = build_user_usage_context(
+            user.user_id,
+            resolved_model.provider_slug.clone(),
+            model.clone(),
+            REQUEST_KIND_IMAGE,
+        );
         usage.plan_id = Some(plan_id);
         usage
     };
     let started_at = std::time::Instant::now();
 
-    match generate_images_with_retry(&state, provider, &model, &prompt, &usage).await {
+    match generate_images_with_retry(
+        &state,
+        provider,
+        &resolved_model.provider_slug,
+        &model,
+        &prompt,
+        &usage,
+    )
+    .await
+    {
         Ok((assets, account_id, _account_name)) => {
             let image_values = assets
                 .iter()
                 .map(|asset| json!({ "id": asset.id, "url": asset.url }))
                 .collect::<Vec<_>>();
-            let result_urls = serde_json::to_value(&image_values)
-                .map_err(|error| AppError::Internal(format!("Serialize image result failed: {error}")))?;
+            let result_urls = serde_json::to_value(&image_values).map_err(|error| {
+                AppError::Internal(format!("Serialize image result failed: {error}"))
+            })?;
 
             image_generations::update_generation_result(&state.db, generation.id, &result_urls)
                 .await
@@ -131,7 +147,12 @@ pub async fn generate_images(
             }))
         }
         Err(error) => {
-            let _ = image_generations::update_generation_error(&state.db, generation.id, &error.to_string()).await;
+            let _ = image_generations::update_generation_error(
+                &state.db,
+                generation.id,
+                &error.to_string(),
+            )
+            .await;
             Err(error)
         }
     }

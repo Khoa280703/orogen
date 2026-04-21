@@ -41,11 +41,20 @@ pub async fn generate_images(
         .model
         .clone()
         .unwrap_or_else(|| DEFAULT_IMAGE_MODEL.to_string());
-    let resolved_model = crate::db::models::get_model_with_provider_by_slug(&state.db, &requested_model)
-        .await
-        .ok_or_else(|| AppError::BadRequest(format!("Unknown or inactive model: {requested_model}")))?;
-    let usage_context =
-        resolve_usage_context(&state, &api_key, &resolved_model.slug, REQUEST_KIND_IMAGE).await?;
+    let resolved_model =
+        crate::db::models::get_model_with_provider_by_slug(&state.db, &requested_model)
+            .await
+            .ok_or_else(|| {
+                AppError::BadRequest(format!("Unknown or inactive model: {requested_model}"))
+            })?;
+    let usage_context = resolve_usage_context(
+        &state,
+        &api_key,
+        &resolved_model.provider_slug,
+        &resolved_model.slug,
+        REQUEST_KIND_IMAGE,
+    )
+    .await?;
 
     enforce_plan_access(
         &state.db,
@@ -68,11 +77,17 @@ pub async fn generate_images(
         })?;
     let started_at = std::time::Instant::now();
 
-    match generate_images_with_retry(&state, provider, &resolved_model.slug, prompt, &usage_context)
-        .await
+    match generate_images_with_retry(
+        &state,
+        provider,
+        &resolved_model.provider_slug,
+        &resolved_model.slug,
+        prompt,
+        &usage_context,
+    )
+    .await
     {
         Ok((assets, account_id, _account_name)) => {
-            state.pool.mark_success().await;
             mark_account_success(&state.db, account_id).await;
             record_usage(
                 &state,

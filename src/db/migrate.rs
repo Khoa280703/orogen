@@ -1,5 +1,32 @@
 use sqlx::postgres::PgPoolOptions;
 
+const CURATED_CODEX_MODELS: [(&str, &str, &str, i32); 4] = [
+    (
+        "gpt-5.4",
+        "gpt-5.4",
+        "Confirmed working general model through the current Codex account.",
+        101,
+    ),
+    (
+        "gpt-5.4-mini",
+        "gpt-5.4-mini",
+        "Confirmed working lighter Codex-routed model for faster requests.",
+        102,
+    ),
+    (
+        "gpt-5.3-codex",
+        "gpt-5.3-codex",
+        "Confirmed working coding-focused model through the current Codex account.",
+        103,
+    ),
+    (
+        "gpt-5.2",
+        "gpt-5.2",
+        "Confirmed working fallback general model through the current Codex account.",
+        104,
+    ),
+];
+
 /// Run database migrations
 pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     let pool = PgPoolOptions::new()
@@ -137,6 +164,97 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
         .execute(&pool)
         .await?;
 
+    sqlx::query(
+        r#"ALTER TABLE accounts ADD COLUMN IF NOT EXISTS provider_slug TEXT NOT NULL DEFAULT 'grok'"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(r#"ALTER TABLE accounts ADD COLUMN IF NOT EXISTS account_label TEXT"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(r#"ALTER TABLE accounts ADD COLUMN IF NOT EXISTS external_account_id TEXT"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(
+        r#"ALTER TABLE accounts ADD COLUMN IF NOT EXISTS auth_mode TEXT NOT NULL DEFAULT 'grok_cookies'"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"ALTER TABLE accounts ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS account_credentials (
+            account_id INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+            credential_type TEXT NOT NULL,
+            payload JSONB NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(r#"DROP INDEX IF EXISTS idx_accounts_provider_active"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(r#"ALTER TABLE accounts DROP COLUMN IF EXISTS is_default"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_accounts_provider_active
+           ON accounts(provider_slug, active, created_at ASC)"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_account_credentials_type
+           ON account_credentials(credential_type)"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        UPDATE accounts
+        SET
+            provider_slug = COALESCE(NULLIF(provider_slug, ''), 'grok'),
+            auth_mode = CASE
+                WHEN COALESCE(auth_mode, '') = '' THEN 'grok_cookies'
+                ELSE auth_mode
+            END
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO account_credentials (account_id, credential_type, payload)
+        SELECT a.id, 'grok_cookies', a.cookies
+        FROM accounts a
+        WHERE a.provider_slug = 'grok'
+          AND a.cookies IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM account_credentials ac
+              WHERE ac.account_id = a.id
+          )
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
     sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id)"#)
         .execute(&pool)
         .await?;
@@ -156,6 +274,23 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
         .execute(&pool)
         .await?;
 
+    sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS provider_slug TEXT"#)
+        .execute(&pool)
+        .await?;
+
+    sqlx::query(
+        r#"
+        UPDATE usage_logs ul
+        SET provider_slug = a.provider_slug
+        FROM accounts a
+        WHERE ul.provider_slug IS NULL
+          AND ul.account_id = a.id
+          AND a.provider_slug IS NOT NULL
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
     sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_user ON usage_logs(user_id)"#)
         .execute(&pool)
         .await?;
@@ -170,6 +305,13 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     sqlx::query(
         r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_api_key_kind_model_created
            ON usage_logs(api_key_id, request_kind, model, created_at DESC)"#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_provider_kind_model_created
+           ON usage_logs(provider_slug, request_kind, model, created_at DESC)"#,
     )
     .execute(&pool)
     .await?;
@@ -280,6 +422,34 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     )
     .execute(&pool)
     .await?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO providers (name, slug, active)
+        VALUES ('Codex', 'codex', true)
+        ON CONFLICT (slug) DO NOTHING
+        "#,
+    )
+    .execute(&pool)
+    .await?;
+
+    sync_curated_codex_models(&pool).await?;
+
+    // Migration 006: Public model catalog routes and account routing state
+    sqlx::raw_sql(include_str!(
+        "../../migrations/006_public_model_routes_and_account_routing.sql"
+    ))
+    .execute(&pool)
+    .await?;
+
+    // Migration 007: Plan access mapping for public model catalog
+    sqlx::raw_sql(include_str!("../../migrations/007_plan_public_models.sql"))
+        .execute(&pool)
+        .await?;
+
+    sqlx::raw_sql(include_str!("../../migrations/008_curate_codex_models.sql"))
+        .execute(&pool)
+        .await?;
 
     sqlx::query(
         r#"
@@ -570,6 +740,50 @@ async fn run_media_studio_migrations(pool: &sqlx::PgPool) -> Result<(), sqlx::Er
         r#"CREATE INDEX IF NOT EXISTS idx_image_generations_status
            ON image_generations(status)"#,
     )
+    .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+async fn sync_curated_codex_models(pool: &sqlx::PgPool) -> Result<(), sqlx::Error> {
+    for (slug, name, description, sort_order) in CURATED_CODEX_MODELS {
+        sqlx::query(
+            r#"
+            INSERT INTO models (provider_id, name, slug, description, active, sort_order)
+            SELECT p.id, $1, $2, $3, true, $4
+            FROM providers p
+            WHERE p.slug = 'codex'
+            ON CONFLICT (slug) DO UPDATE
+            SET
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                active = true,
+                sort_order = EXCLUDED.sort_order
+            "#,
+        )
+        .bind(name)
+        .bind(slug)
+        .bind(description)
+        .bind(sort_order)
+        .execute(pool)
+        .await?;
+    }
+
+    let allowed_slugs = CURATED_CODEX_MODELS
+        .iter()
+        .map(|(slug, _, _, _)| slug.to_string())
+        .collect::<Vec<_>>();
+
+    sqlx::query(
+        r#"
+        UPDATE models
+        SET active = false
+        WHERE provider_id = (SELECT id FROM providers WHERE slug = 'codex')
+          AND slug <> ALL($1)
+        "#,
+    )
+    .bind(allowed_slugs)
     .execute(pool)
     .await?;
 

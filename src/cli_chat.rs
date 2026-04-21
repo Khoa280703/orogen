@@ -7,6 +7,8 @@ use crate::db;
 use crate::grok::client::{GrokClient, GrokRequestError, StreamEvent};
 use crate::grok::output_sanitizer::OutputSanitizer;
 use crate::grok::types::{GrokRequest, GrokStreamEvent};
+use crate::providers::ProviderRegistry;
+use crate::services::codex_client::CodexClient;
 
 pub struct CliChat {
     pool: AccountPool,
@@ -28,11 +30,19 @@ impl CliChat {
         let db = db::init_pool(url)
             .await
             .expect("Failed to connect to PostgreSQL");
-        let pool = AccountPool::new(db);
         let store = ConversationStore::new();
         let grok = GrokClient::new()
             .await
             .expect("Failed to create Grok client");
+        let providers = ProviderRegistry::new(
+            grok.clone(),
+            CodexClient::new(
+                config.codex_upstream_base_url.clone(),
+                config.codex_upstream_originator.clone(),
+                config.codex_upstream_user_agent.clone(),
+            ),
+        );
+        let pool = AccountPool::new(db, config.clone(), providers);
         let model = config.default_model.clone();
 
         let conversation = if let Some(id) = resume_id {
@@ -126,7 +136,7 @@ impl CliChat {
         let account = match self.pool.get_current().await {
             Some(a) => a,
             None => {
-                eprintln!("\x1b[31mNo accounts configured! Add cookies to cookies.json\x1b[0m");
+                eprintln!("\x1b[31mNo Grok accounts configured in the database\x1b[0m");
                 return;
             }
         };
@@ -144,12 +154,19 @@ impl CliChat {
 
         let mut full_response = String::new();
         let mut sanitizer = OutputSanitizer::new();
+        let cookies = match account.grok_cookies() {
+            Ok(cookies) => cookies,
+            Err(error) => {
+                eprintln!("\x1b[31m{error}\x1b[0m");
+                return;
+            }
+        };
 
         // Try streaming request
         let proxy_ref = account.proxy_url.as_ref();
         match self
             .grok
-            .send_request_stream(&account.cookies, &payload, proxy_ref)
+            .send_request_stream(cookies, &payload, proxy_ref)
             .await
         {
             Ok(mut rx) => {
@@ -161,10 +178,17 @@ impl CliChat {
                 eprintln!("\x1b[33m\n[Rotating to next account...]\x1b[0m");
                 if self.pool.rotate().await {
                     if let Some(next) = self.pool.get_current().await {
+                        let next_cookies = match next.grok_cookies() {
+                            Ok(cookies) => cookies,
+                            Err(error) => {
+                                eprintln!("\x1b[31m{error}\x1b[0m");
+                                return;
+                            }
+                        };
                         let next_proxy = next.proxy_url.as_ref();
                         match self
                             .grok
-                            .send_request_stream(&next.cookies, &payload, next_proxy)
+                            .send_request_stream(next_cookies, &payload, next_proxy)
                             .await
                         {
                             Ok(mut rx) => {

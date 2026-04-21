@@ -17,11 +17,12 @@ futures = "0.3"
 async-stream = "0.3"
 tower-http = { version = "0.6", features = ["cors", "set-header"] }
 clap = { version = "4", features = ["derive"] }
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "stream", "socks", "rustls-tls"] }
 wreq = { version = "6.0.0-rc.28", features = ["stream", "json", "gzip", "brotli", "deflate", "zstd", "socks"] }
 wreq-util = "3.0.0-rc.10"
 rand = "0.9"
 base64 = "0.22"
+sha2 = "0.10"
 sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid", "json"] }
 dotenvy = "0.15"
 tower = { version = "0.4", features = ["util"] }

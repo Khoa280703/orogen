@@ -7,6 +7,7 @@ use serde_json::json;
 
 use crate::AppState;
 use crate::account::pool::CurrentAccount;
+use crate::account::types::PROVIDER_GROK;
 use crate::api::chat_completions::{
     ApiKey, duration_to_latency_ms, record_usage, request_error_status, resolve_usage_context,
     touch_api_key_last_used,
@@ -88,8 +89,14 @@ pub async fn generate_videos(
         .model
         .clone()
         .unwrap_or_else(|| DEFAULT_VIDEO_MODEL.to_string());
-    let usage_context =
-        resolve_usage_context(&state, &api_key, &requested_model, REQUEST_KIND_VIDEO).await?;
+    let usage_context = resolve_usage_context(
+        &state,
+        &api_key,
+        PROVIDER_GROK,
+        &requested_model,
+        REQUEST_KIND_VIDEO,
+    )
+    .await?;
 
     enforce_plan_access(
         &state.db,
@@ -101,24 +108,35 @@ pub async fn generate_videos(
     )
     .await?;
 
-    let account = state.pool.get_current().await.ok_or(AppError::NoAccounts)?;
+    let account = state
+        .pool
+        .get_current_for_provider(PROVIDER_GROK)
+        .await
+        .ok_or(AppError::NoAccounts)?;
     let start = std::time::Instant::now();
 
     match run_video_generation_flow(&state, &account, &body, &requested_model).await {
         Ok((raw_body, prepared)) => {
             let latency_ms = duration_to_latency_ms(start.elapsed());
-            state.pool.mark_success().await;
+            if let Some(id) = account.id {
+                let _ = crate::db::accounts::update_health_counts(&state.db, id, true).await;
+            }
             record_usage(&state, &usage_context, account.id, "success", latency_ms).await;
             touch_api_key_last_used(&state, &usage_context).await;
             build_video_generation_response(raw_body, prepared)
         }
         Err(GrokRequestError::ProxyFailed(message)) => {
             let latency_ms = duration_to_latency_ms(start.elapsed());
-            if let Some(next) = proxy_failover::deactivate_failed_proxy(&state, &account, &message).await {
+            if let Some(next) =
+                proxy_failover::deactivate_failed_proxy(&state, &account, &message).await
+            {
                 match run_video_generation_flow(&state, &next, &body, &requested_model).await {
                     Ok((raw_body, prepared)) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
-                        state.pool.mark_success().await;
+                        if let Some(id) = next.id {
+                            let _ = crate::db::accounts::update_health_counts(&state.db, id, true)
+                                .await;
+                        }
                         record_usage(&state, &usage_context, next.id, "success", total_latency_ms)
                             .await;
                         touch_api_key_last_used(&state, &usage_context).await;
@@ -127,7 +145,14 @@ pub async fn generate_videos(
                     Err(retry_error) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
                         if matches!(retry_error, GrokRequestError::RateLimited) {
-                            state.pool.mark_rate_limited().await;
+                            if let Some(id) = next.id {
+                                let _ =
+                                    crate::db::accounts::record_rate_limited_attempt(&state.db, id)
+                                        .await;
+                            }
+                        } else if let Some(id) = next.id {
+                            let _ = crate::db::accounts::update_health_counts(&state.db, id, false)
+                                .await;
                         }
                         record_usage(
                             &state,
@@ -141,7 +166,14 @@ pub async fn generate_videos(
                     }
                 }
             } else {
-                record_usage(&state, &usage_context, account.id, "proxy_failed", latency_ms).await;
+                record_usage(
+                    &state,
+                    &usage_context,
+                    account.id,
+                    "proxy_failed",
+                    latency_ms,
+                )
+                .await;
                 Err(AppError::GrokApi(message))
             }
         }
@@ -157,7 +189,10 @@ pub async fn generate_videos(
                 match run_video_generation_flow(&state, &next, &body, &requested_model).await {
                     Ok((raw_body, prepared)) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
-                        state.pool.mark_success().await;
+                        if let Some(id) = next.id {
+                            let _ = crate::db::accounts::update_health_counts(&state.db, id, true)
+                                .await;
+                        }
                         record_usage(&state, &usage_context, next.id, "success", total_latency_ms)
                             .await;
                         touch_api_key_last_used(&state, &usage_context).await;
@@ -166,7 +201,14 @@ pub async fn generate_videos(
                     Err(retry_error) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
                         if matches!(retry_error, GrokRequestError::RateLimited) {
-                            state.pool.mark_rate_limited().await;
+                            if let Some(id) = next.id {
+                                let _ =
+                                    crate::db::accounts::record_rate_limited_attempt(&state.db, id)
+                                        .await;
+                            }
+                        } else if let Some(id) = next.id {
+                            let _ = crate::db::accounts::update_health_counts(&state.db, id, false)
+                                .await;
                         }
                         record_usage(
                             &state,
@@ -186,14 +228,23 @@ pub async fn generate_videos(
         }
         Err(GrokRequestError::RateLimited) => {
             let latency_ms = duration_to_latency_ms(start.elapsed());
-            state.pool.mark_rate_limited().await;
+            if let Some(id) = account.id {
+                let _ = crate::db::accounts::record_rate_limited_attempt(&state.db, id).await;
+            }
 
-            if state.pool.rotate().await {
-                let next = state.pool.get_current().await.ok_or(AppError::NoAccounts)?;
+            if state.pool.rotate_provider(PROVIDER_GROK).await {
+                let next = state
+                    .pool
+                    .get_current_for_provider(PROVIDER_GROK)
+                    .await
+                    .ok_or(AppError::NoAccounts)?;
                 match run_video_generation_flow(&state, &next, &body, &requested_model).await {
                     Ok((raw_body, prepared)) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
-                        state.pool.mark_success().await;
+                        if let Some(id) = next.id {
+                            let _ = crate::db::accounts::update_health_counts(&state.db, id, true)
+                                .await;
+                        }
                         record_usage(&state, &usage_context, next.id, "success", total_latency_ms)
                             .await;
                         touch_api_key_last_used(&state, &usage_context).await;
@@ -202,9 +253,17 @@ pub async fn generate_videos(
                     Err(retry_error) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
                         if matches!(retry_error, GrokRequestError::RateLimited) {
-                            state.pool.mark_rate_limited().await;
+                            if let Some(id) = next.id {
+                                let _ =
+                                    crate::db::accounts::record_rate_limited_attempt(&state.db, id)
+                                        .await;
+                            }
                         } else {
-                            state.pool.mark_failure().await;
+                            if let Some(id) = next.id {
+                                let _ =
+                                    crate::db::accounts::update_health_counts(&state.db, id, false)
+                                        .await;
+                            }
                         }
                         record_usage(
                             &state,
@@ -235,17 +294,24 @@ pub async fn generate_videos(
                 let _ = crate::db::account_sessions::mark_session_expired(
                     &state.db,
                     id,
-                    "Upstream Grok session expired or cookies are invalid.",
+                    "Upstream account credentials expired or are invalid.",
                 )
                 .await;
             }
 
-            if state.pool.rotate().await {
-                let next = state.pool.get_current().await.ok_or(AppError::NoAccounts)?;
+            if state.pool.rotate_provider(PROVIDER_GROK).await {
+                let next = state
+                    .pool
+                    .get_current_for_provider(PROVIDER_GROK)
+                    .await
+                    .ok_or(AppError::NoAccounts)?;
                 match run_video_generation_flow(&state, &next, &body, &requested_model).await {
                     Ok((raw_body, prepared)) => {
                         let total_latency_ms = duration_to_latency_ms(start.elapsed());
-                        state.pool.mark_success().await;
+                        if let Some(id) = next.id {
+                            let _ = crate::db::accounts::update_health_counts(&state.db, id, true)
+                                .await;
+                        }
                         record_usage(&state, &usage_context, next.id, "success", total_latency_ms)
                             .await;
                         touch_api_key_last_used(&state, &usage_context).await;
@@ -258,12 +324,19 @@ pub async fn generate_videos(
                                 let _ = crate::db::account_sessions::mark_session_expired(
                                     &state.db,
                                     id,
-                                    "Upstream Grok session expired or cookies are invalid.",
+                                    "Upstream account credentials expired or are invalid.",
                                 )
                                 .await;
+                                let _ =
+                                    crate::db::accounts::update_health_counts(&state.db, id, false)
+                                        .await;
                             }
                         } else {
-                            state.pool.mark_failure().await;
+                            if let Some(id) = next.id {
+                                let _ =
+                                    crate::db::accounts::update_health_counts(&state.db, id, false)
+                                        .await;
+                            }
                         }
                         record_usage(
                             &state,
@@ -290,11 +363,17 @@ pub async fn generate_videos(
         }
         Err(GrokRequestError::CfBlocked) => {
             let latency_ms = duration_to_latency_ms(start.elapsed());
+            if let Some(id) = account.id {
+                let _ = crate::db::accounts::update_health_counts(&state.db, id, false).await;
+            }
             record_usage(&state, &usage_context, account.id, "cf_blocked", latency_ms).await;
             Err(AppError::GrokApi("Cloudflare blocked".into()))
         }
         Err(error) => {
             let latency_ms = duration_to_latency_ms(start.elapsed());
+            if let Some(id) = account.id {
+                let _ = crate::db::accounts::update_health_counts(&state.db, id, false).await;
+            }
             record_usage(
                 &state,
                 &usage_context,
@@ -314,12 +393,13 @@ async fn run_video_generation_flow(
     body: &VideoGenerationRequest,
     effective_model: &str,
 ) -> Result<(String, PreparedVideoRequest), GrokRequestError> {
+    let cookies = account.grok_cookies().map_err(GrokRequestError::Network)?;
     let parent_post_id = create_parent_post(state, account, body).await?;
     let prepared = prepare_video_request(body, effective_model.to_string(), parent_post_id);
     let proxy_ref = account.proxy_url.as_ref();
     let raw_body = state
         .grok
-        .send_request(&account.cookies, &prepared.payload, proxy_ref)
+        .send_request(cookies, &prepared.payload, proxy_ref)
         .await?;
     Ok((raw_body, prepared))
 }
@@ -329,6 +409,7 @@ async fn create_parent_post(
     account: &CurrentAccount,
     body: &VideoGenerationRequest,
 ) -> Result<String, GrokRequestError> {
+    let cookies = account.grok_cookies().map_err(GrokRequestError::Network)?;
     let trimmed_image_url = body
         .image_url
         .as_deref()
@@ -359,7 +440,7 @@ async fn create_parent_post(
         .grok
         .send_json_request(
             GROK_MEDIA_CREATE_POST_URL,
-            &account.cookies,
+            cookies,
             &create_payload,
             proxy_ref,
         )

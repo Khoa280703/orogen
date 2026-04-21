@@ -15,6 +15,7 @@ pub struct Model {
 }
 
 #[derive(Debug, Clone, FromRow)]
+#[allow(dead_code)]
 pub struct ModelWithProvider {
     pub provider_slug: String,
     pub name: String,
@@ -37,6 +38,7 @@ pub async fn list_models(pool: &PgPool) -> Vec<Model> {
     .unwrap_or_default()
 }
 
+#[allow(dead_code)]
 pub async fn list_models_with_provider(pool: &PgPool) -> Vec<ModelWithProvider> {
     sqlx::query_as(
         r#"SELECT p.slug AS provider_slug, m.name, m.slug, m.description, m.created_at
@@ -81,7 +83,10 @@ pub async fn get_model_by_slug(pool: &PgPool, slug: &str) -> Option<Model> {
     .flatten()
 }
 
-pub async fn get_model_with_provider_by_slug(pool: &PgPool, slug: &str) -> Option<ModelWithProvider> {
+pub async fn get_model_with_provider_by_slug(
+    pool: &PgPool,
+    slug: &str,
+) -> Option<ModelWithProvider> {
     sqlx::query_as(
         r#"SELECT p.slug AS provider_slug, m.name, m.slug, m.description, m.created_at
            FROM models m
@@ -111,7 +116,11 @@ pub async fn list_models_for_plan(pool: &PgPool, plan_id: i32) -> Vec<Model> {
     .unwrap_or_default()
 }
 
-pub async fn list_models_with_provider_for_plan(pool: &PgPool, plan_id: i32) -> Vec<ModelWithProvider> {
+#[allow(dead_code)]
+pub async fn list_models_with_provider_for_plan(
+    pool: &PgPool,
+    plan_id: i32,
+) -> Vec<ModelWithProvider> {
     sqlx::query_as(
         r#"SELECT p.slug AS provider_slug, m.name, m.slug, m.description, m.created_at
            FROM models m
@@ -127,6 +136,7 @@ pub async fn list_models_with_provider_for_plan(pool: &PgPool, plan_id: i32) -> 
 }
 
 /// Check if model is allowed for a plan
+#[allow(dead_code)]
 pub async fn is_model_allowed_for_plan(pool: &PgPool, plan_id: i32, model_slug: &str) -> bool {
     let result: Option<i32> = sqlx::query_scalar(
         r#"SELECT m.id

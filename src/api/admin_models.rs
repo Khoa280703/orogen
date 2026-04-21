@@ -89,6 +89,10 @@ pub async fn create_new_model(
     .await
     .ok_or(AppError::Internal("Failed to create model".into()))?;
 
+    crate::db::public_model_routes::sync_public_catalog_for_model(&state.db, model.id)
+        .await
+        .map_err(|error| AppError::Internal(format!("Failed to sync public catalog: {error}")))?;
+
     let provider_name = get_provider(&state.db, model.provider_id)
         .await
         .map(|p| p.name)
@@ -126,6 +130,10 @@ pub async fn update_existing_model(
     .await
     .ok_or(AppError::Internal("Failed to update model".into()))?;
 
+    crate::db::public_model_routes::sync_public_catalog_for_model(&state.db, model.id)
+        .await
+        .map_err(|error| AppError::Internal(format!("Failed to sync public catalog: {error}")))?;
+
     let provider_name = get_provider(&state.db, model.provider_id)
         .await
         .map(|p| p.name)
@@ -151,7 +159,13 @@ pub async fn delete_model(
     State(state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<Json<serde_json::Value>, AppError> {
-    let _ = update_model(&state.db, id, None, None, Some(false), None).await;
+    if let Some(model) = update_model(&state.db, id, None, None, Some(false), None).await {
+        crate::db::public_model_routes::sync_public_catalog_for_model(&state.db, model.id)
+            .await
+            .map_err(|error| {
+                AppError::Internal(format!("Failed to sync public catalog: {error}"))
+            })?;
+    }
 
     Ok(Json(
         json!({ "success": true, "message": "Model deactivated" }),

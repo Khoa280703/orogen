@@ -1,3 +1,4 @@
+pub mod account_credentials;
 pub mod account_sessions;
 pub mod accounts;
 pub mod api_keys;
@@ -11,15 +12,15 @@ pub mod plan_models;
 pub mod plans;
 pub mod providers;
 pub mod proxies;
+pub mod public_model_routes;
+pub mod public_models;
 pub mod transactions;
 pub mod usage_logs;
 pub mod user_plans;
 pub mod users;
 
 // Re-export for convenience
-pub use models::{
-    create_model, is_model_allowed_for_plan, list_models, list_models_for_plan, update_model,
-};
+pub use models::{create_model, list_models, list_models_for_plan, update_model};
 pub use plan_models::{add_model_to_plan, remove_model_from_plan, set_plan_models};
 pub use plans::get_plan;
 pub use providers::{create_provider, get_provider, list_providers, update_provider};

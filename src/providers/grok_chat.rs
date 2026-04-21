@@ -1,12 +1,21 @@
 use async_trait::async_trait;
 use tokio::sync::mpsc;
 
-use crate::account::types::GrokCookies;
+use crate::account::pool::CurrentAccount;
 use crate::grok::client::{GrokClient, StreamEvent};
 use crate::grok::output_sanitizer::OutputSanitizer;
 use crate::grok::types::GrokRequest;
 use crate::providers::chat_provider::ChatProvider;
-use crate::providers::types::{ChatMessage, ChatStreamEvent, ProviderError};
+use crate::providers::types::{
+    ChatMessage, ChatStreamEvent, ProviderAuthMode, ProviderCapabilities, ProviderError,
+};
+
+const GROK_CHAT_CAPABILITIES: ProviderCapabilities = ProviderCapabilities {
+    auth_mode: ProviderAuthMode::CookieSession,
+    supports_chat_streaming: true,
+    supports_proxy: true,
+    supports_responses_api: false,
+};
 
 #[derive(Clone)]
 pub struct GrokChatProvider {
@@ -21,14 +30,18 @@ impl GrokChatProvider {
 
 #[async_trait]
 impl ChatProvider for GrokChatProvider {
+    fn capabilities(&self) -> ProviderCapabilities {
+        GROK_CHAT_CAPABILITIES
+    }
+
     async fn chat_stream(
         &self,
-        cookies: &GrokCookies,
-        proxy_url: Option<&String>,
+        account: &CurrentAccount,
         model: &str,
         messages: &[ChatMessage],
         system_prompt: &str,
     ) -> Result<mpsc::UnboundedReceiver<ChatStreamEvent>, ProviderError> {
+        let cookies = account.grok_cookies().map_err(ProviderError::Network)?;
         let payload = GrokRequest::new(
             flatten_messages(messages),
             model.to_string(),
@@ -37,7 +50,7 @@ impl ChatProvider for GrokChatProvider {
         );
         let mut upstream = self
             .client
-            .send_request_stream(cookies, &payload, proxy_url)
+            .send_request_stream(cookies, &payload, account.proxy_url.as_ref())
             .await
             .map_err(ProviderError::from)?;
 
@@ -62,7 +75,9 @@ impl ChatProvider for GrokChatProvider {
                         }
                         ChatStreamEvent::Thinking(sanitized)
                     }
-                    StreamEvent::Error(error) => ChatStreamEvent::Error(error),
+                    StreamEvent::Error(error) => {
+                        ChatStreamEvent::Error(ProviderError::UpstreamTransient(error))
+                    }
                     StreamEvent::Done => ChatStreamEvent::Done,
                     StreamEvent::Event(_) => continue,
                 };
@@ -92,7 +107,11 @@ fn flatten_messages(messages: &[ChatMessage]) -> String {
         }
     }
 
-    if chat_parts.len() == 1 && messages.last().is_some_and(|message| message.role == "user") {
+    if chat_parts.len() == 1
+        && messages
+            .last()
+            .is_some_and(|message| message.role == "user")
+    {
         messages
             .last()
             .map(|message| message.content.clone())

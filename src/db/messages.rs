@@ -62,12 +62,11 @@ pub async fn list_messages(
 }
 
 pub async fn count_messages(pool: &sqlx::PgPool, conversation_id: i32) -> Result<i64, sqlx::Error> {
-    let count: Option<i64> = sqlx::query_scalar(
-        r#"SELECT COUNT(*)::BIGINT FROM messages WHERE conversation_id = $1"#,
-    )
-    .bind(conversation_id)
-    .fetch_one(pool)
-    .await?;
+    let count: Option<i64> =
+        sqlx::query_scalar(r#"SELECT COUNT(*)::BIGINT FROM messages WHERE conversation_id = $1"#)
+            .bind(conversation_id)
+            .fetch_one(pool)
+            .await?;
 
     Ok(count.unwrap_or(0))
 }

@@ -68,7 +68,11 @@ pub async fn list_conversations(
 ) -> Result<Json<AdminConversationListResponse>, (StatusCode, String)> {
     let search = query.search.as_deref().unwrap_or("").trim();
     let model = query.model.as_deref().unwrap_or("").trim();
-    let search_filter = if search.is_empty() { None } else { Some(format!("%{search}%")) };
+    let search_filter = if search.is_empty() {
+        None
+    } else {
+        Some(format!("%{search}%"))
+    };
     let model_filter = if model.is_empty() { None } else { Some(model) };
 
     let items = sqlx::query(
@@ -156,15 +160,21 @@ pub async fn get_conversation_detail(
         title: row.get("title"),
         model_slug: row.get("model_slug"),
         active: row.get("active"),
-        created_at: row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at").map(|value| value.to_rfc3339()),
-        updated_at: row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("updated_at").map(|value| value.to_rfc3339()),
+        created_at: row
+            .get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at")
+            .map(|value| value.to_rfc3339()),
+        updated_at: row
+            .get::<Option<chrono::DateTime<chrono::Utc>>, _>("updated_at")
+            .map(|value| value.to_rfc3339()),
         messages: messages
             .into_iter()
             .map(|message| AdminConversationMessage {
                 id: message.get("id"),
                 role: message.get("role"),
                 content: message.get("content"),
-                created_at: message.get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at").map(|value| value.to_rfc3339()),
+                created_at: message
+                    .get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at")
+                    .map(|value| value.to_rfc3339()),
             })
             .collect(),
     }))
@@ -202,12 +212,19 @@ fn map_list_item(row: sqlx::postgres::PgRow) -> AdminConversationListItem {
         title: row.get("title"),
         model_slug: row.get("model_slug"),
         active: row.get("active"),
-        created_at: row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at").map(|value| value.to_rfc3339()),
-        updated_at: row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("updated_at").map(|value| value.to_rfc3339()),
+        created_at: row
+            .get::<Option<chrono::DateTime<chrono::Utc>>, _>("created_at")
+            .map(|value| value.to_rfc3339()),
+        updated_at: row
+            .get::<Option<chrono::DateTime<chrono::Utc>>, _>("updated_at")
+            .map(|value| value.to_rfc3339()),
         message_count: row.get("message_count"),
     }
 }
 
 fn internal_error(error: sqlx::Error) -> (StatusCode, String) {
-    (StatusCode::INTERNAL_SERVER_ERROR, format!("Database error: {error}"))
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        format!("Database error: {error}"),
+    )
 }

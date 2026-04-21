@@ -167,7 +167,12 @@ pub async fn list_users(
 fn push_user_filters(builder: &mut QueryBuilder<Postgres>, query: &UserListQuery) {
     let mut has_where = false;
 
-    if let Some(search) = query.search.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+    if let Some(search) = query
+        .search
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         push_user_filter_prefix(builder, &mut has_where);
         let pattern = format!("%{}%", search);
         builder.push("(u.email ILIKE ");
@@ -177,7 +182,12 @@ fn push_user_filters(builder: &mut QueryBuilder<Postgres>, query: &UserListQuery
         builder.push(")");
     }
 
-    if let Some(plan) = query.plan.as_deref().map(str::trim).filter(|value| !value.is_empty() && *value != "all") {
+    if let Some(plan) = query
+        .plan
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && *value != "all")
+    {
         push_user_filter_prefix(builder, &mut has_where);
         builder.push("p.slug = ");
         builder.push_bind(plan.to_string());

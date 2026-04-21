@@ -26,6 +26,24 @@ struct AppConfigInner {
     pub data_dir: String,
     #[serde(skip)]
     pub database_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_oauth_client_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_oauth_client_secret: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_oauth_auth_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_oauth_token_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_oauth_redirect_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub codex_oauth_scopes: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_upstream_base_url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_upstream_originator: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_upstream_user_agent: Option<String>,
 }
 
 pub struct AppConfig {
@@ -36,6 +54,15 @@ pub struct AppConfig {
     pub default_model: String,
     pub data_dir: String,
     pub database_url: Option<String>,
+    pub codex_oauth_client_id: Option<String>,
+    pub codex_oauth_client_secret: Option<String>,
+    pub codex_oauth_auth_url: String,
+    pub codex_oauth_token_url: String,
+    pub codex_oauth_redirect_url: Option<String>,
+    pub codex_oauth_scopes: Vec<String>,
+    pub codex_upstream_base_url: String,
+    pub codex_upstream_originator: String,
+    pub codex_upstream_user_agent: String,
     pub csrf_protection: Arc<CsrfProtection>,
 }
 
@@ -52,6 +79,15 @@ impl Serialize for AppConfig {
             default_model: self.default_model.clone(),
             data_dir: self.data_dir.clone(),
             database_url: None,
+            codex_oauth_client_id: self.codex_oauth_client_id.clone(),
+            codex_oauth_client_secret: None,
+            codex_oauth_auth_url: Some(self.codex_oauth_auth_url.clone()),
+            codex_oauth_token_url: Some(self.codex_oauth_token_url.clone()),
+            codex_oauth_redirect_url: self.codex_oauth_redirect_url.clone(),
+            codex_oauth_scopes: self.codex_oauth_scopes.clone(),
+            codex_upstream_base_url: Some(self.codex_upstream_base_url.clone()),
+            codex_upstream_originator: Some(self.codex_upstream_originator.clone()),
+            codex_upstream_user_agent: Some(self.codex_upstream_user_agent.clone()),
         };
         inner.serialize(serializer)
     }
@@ -71,6 +107,29 @@ impl<'de> Deserialize<'de> for AppConfig {
             default_model: inner.default_model,
             data_dir: inner.data_dir,
             database_url: inner.database_url,
+            codex_oauth_client_id: inner.codex_oauth_client_id,
+            codex_oauth_client_secret: inner.codex_oauth_client_secret,
+            codex_oauth_auth_url: inner
+                .codex_oauth_auth_url
+                .unwrap_or_else(default_codex_oauth_auth_url),
+            codex_oauth_token_url: inner
+                .codex_oauth_token_url
+                .unwrap_or_else(default_codex_oauth_token_url),
+            codex_oauth_redirect_url: inner.codex_oauth_redirect_url,
+            codex_oauth_scopes: if inner.codex_oauth_scopes.is_empty() {
+                default_codex_oauth_scopes()
+            } else {
+                inner.codex_oauth_scopes
+            },
+            codex_upstream_base_url: inner
+                .codex_upstream_base_url
+                .unwrap_or_else(default_codex_upstream_base_url),
+            codex_upstream_originator: inner
+                .codex_upstream_originator
+                .unwrap_or_else(default_codex_upstream_originator),
+            codex_upstream_user_agent: inner
+                .codex_upstream_user_agent
+                .unwrap_or_else(default_codex_upstream_user_agent),
             csrf_protection: Arc::new(CsrfProtection::new()),
         })
     }
@@ -85,6 +144,28 @@ fn default_model() -> String {
 fn default_data_dir() -> String {
     "data/conversations".into()
 }
+fn default_codex_oauth_auth_url() -> String {
+    "https://auth.openai.com/authorize".into()
+}
+fn default_codex_oauth_token_url() -> String {
+    "https://auth.openai.com/oauth/token".into()
+}
+fn default_codex_oauth_scopes() -> Vec<String> {
+    vec!["openid".into(), "profile".into(), "offline_access".into()]
+}
+fn default_codex_upstream_base_url() -> String {
+    "https://chatgpt.com/backend-api/codex/responses".into()
+}
+fn default_codex_upstream_originator() -> String {
+    "codex-cli".into()
+}
+fn default_codex_upstream_user_agent() -> String {
+    format!(
+        "codex-cli/1.0.18 ({}; {})",
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    )
+}
 
 impl Default for AppConfig {
     fn default() -> Self {
@@ -96,6 +177,15 @@ impl Default for AppConfig {
             default_model: default_model(),
             data_dir: default_data_dir(),
             database_url: None,
+            codex_oauth_client_id: None,
+            codex_oauth_client_secret: None,
+            codex_oauth_auth_url: default_codex_oauth_auth_url(),
+            codex_oauth_token_url: default_codex_oauth_token_url(),
+            codex_oauth_redirect_url: None,
+            codex_oauth_scopes: default_codex_oauth_scopes(),
+            codex_upstream_base_url: default_codex_upstream_base_url(),
+            codex_upstream_originator: default_codex_upstream_originator(),
+            codex_upstream_user_agent: default_codex_upstream_user_agent(),
             csrf_protection: Arc::new(CsrfProtection::new()),
         }
     }
@@ -111,6 +201,15 @@ impl Clone for AppConfig {
             default_model: self.default_model.clone(),
             data_dir: self.data_dir.clone(),
             database_url: self.database_url.clone(),
+            codex_oauth_client_id: self.codex_oauth_client_id.clone(),
+            codex_oauth_client_secret: self.codex_oauth_client_secret.clone(),
+            codex_oauth_auth_url: self.codex_oauth_auth_url.clone(),
+            codex_oauth_token_url: self.codex_oauth_token_url.clone(),
+            codex_oauth_redirect_url: self.codex_oauth_redirect_url.clone(),
+            codex_oauth_scopes: self.codex_oauth_scopes.clone(),
+            codex_upstream_base_url: self.codex_upstream_base_url.clone(),
+            codex_upstream_originator: self.codex_upstream_originator.clone(),
+            codex_upstream_user_agent: self.codex_upstream_user_agent.clone(),
             csrf_protection: self.csrf_protection.clone(),
         }
     }
@@ -137,6 +236,47 @@ pub fn load_config() -> AppConfig {
         if let Ok(token) = std::env::var("ADMIN_TOKEN") {
             config.admin_token = Some(token);
         }
+    }
+
+    if let Ok(value) = std::env::var("CODEX_OAUTH_CLIENT_ID") {
+        config.codex_oauth_client_id = Some(value);
+    }
+
+    if let Ok(value) = std::env::var("CODEX_OAUTH_CLIENT_SECRET") {
+        config.codex_oauth_client_secret = Some(value);
+    }
+
+    if let Ok(value) = std::env::var("CODEX_OAUTH_AUTH_URL") {
+        config.codex_oauth_auth_url = value;
+    }
+
+    if let Ok(value) = std::env::var("CODEX_OAUTH_TOKEN_URL") {
+        config.codex_oauth_token_url = value;
+    }
+
+    if let Ok(value) = std::env::var("CODEX_OAUTH_REDIRECT_URL") {
+        config.codex_oauth_redirect_url = Some(value);
+    }
+
+    if let Ok(value) = std::env::var("CODEX_OAUTH_SCOPES") {
+        config.codex_oauth_scopes = value
+            .split(',')
+            .map(str::trim)
+            .filter(|item| !item.is_empty())
+            .map(str::to_string)
+            .collect();
+    }
+
+    if let Ok(value) = std::env::var("CODEX_UPSTREAM_BASE_URL") {
+        config.codex_upstream_base_url = value;
+    }
+
+    if let Ok(value) = std::env::var("CODEX_UPSTREAM_ORIGINATOR") {
+        config.codex_upstream_originator = value;
+    }
+
+    if let Ok(value) = std::env::var("CODEX_UPSTREAM_USER_AGENT") {
+        config.codex_upstream_user_agent = value;
     }
 
     config

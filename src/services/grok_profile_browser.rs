@@ -31,7 +31,8 @@ pub struct SyncProfileCookiesResult {
 }
 
 pub fn resolve_profile_dir(account_name: &str) -> Result<PathBuf, String> {
-    let base = std::env::current_dir().map_err(|error| format!("Cannot read current dir: {error}"))?;
+    let base =
+        std::env::current_dir().map_err(|error| format!("Cannot read current dir: {error}"))?;
     Ok(base
         .join("data")
         .join("browser-profiles")
@@ -69,7 +70,8 @@ pub async fn sync_profile_cookies(account_name: &str) -> Result<SyncProfileCooki
 }
 
 async fn run_script(args: &[&str]) -> Result<ScriptResponse, String> {
-    let root = std::env::current_dir().map_err(|error| format!("Cannot read current dir: {error}"))?;
+    let root =
+        std::env::current_dir().map_err(|error| format!("Cannot read current dir: {error}"))?;
     let script_path = root.join("scripts").join("grok-profile-session.mjs");
 
     if !script_path.exists() {
