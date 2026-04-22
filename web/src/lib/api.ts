@@ -103,11 +103,17 @@ export interface PublicGatewayModel {
 export interface UsageLogEntry {
   id: number | null;
   api_key_id: number | null;
+  plan_id: number | null;
   account_id: number | null;
   provider_slug: string | null;
   model: string | null;
   status: string | null;
   latency_ms: number | null;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  cached_tokens: number | null;
+  credits_used: number | null;
+  estimated_usage: boolean | null;
   created_at: string | null;
 }
 
@@ -115,6 +121,22 @@ export interface UsageLogFilters {
   statuses: string[];
   models: string[];
   providers: string[];
+}
+
+export interface UsageLogAggregates {
+  prompt_tokens: number;
+  completion_tokens: number;
+  cached_tokens: number;
+  credits_used: number;
+}
+
+export interface UsageLogBreakdownRow {
+  label: string;
+  requests: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cached_tokens: number;
+  credits_used: number;
 }
 
 export interface AdminListResponse<T> {
@@ -512,15 +534,44 @@ export async function startCodexAccountLogin(id: number) {
   );
 }
 
+export async function startCodexImportLogin(data: { name?: string; proxyId?: number | null }) {
+  return apiRequest<{ success: boolean; session: CodexLoginSession }>(
+    '/admin/accounts/codex-import/start',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        name: data.name?.trim() || null,
+        proxy_id: data.proxyId ?? null,
+      }),
+    }
+  );
+}
+
 export async function getCodexAccountLoginStatus(id: number) {
   return apiRequest<{ success: boolean; session: CodexLoginSession }>(
     `/admin/accounts/${id}/codex-login-status`
   );
 }
 
+export async function getCodexImportLoginStatus(sessionId: string) {
+  return apiRequest<{ success: boolean; session: CodexLoginSession }>(
+    `/admin/accounts/codex-import/${sessionId}`
+  );
+}
+
 export async function submitCodexAccountCallback(id: number, callbackUrl: string) {
   return apiRequest<{ success: boolean; session: CodexLoginSession }>(
     `/admin/accounts/${id}/complete-codex-login`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ callback_url: callbackUrl }),
+    }
+  );
+}
+
+export async function submitCodexImportCallback(sessionId: string, callbackUrl: string) {
+  return apiRequest<{ success: boolean; session: CodexLoginSession }>(
+    `/admin/accounts/codex-import/${sessionId}/complete`,
     {
       method: 'POST',
       body: JSON.stringify({ callback_url: callbackUrl }),
@@ -606,17 +657,50 @@ export async function listApiKeys() {
   return apiRequest<[]>('/admin/api-keys');
 }
 
-export async function createApiKey(label?: string, quotaPerDay?: number, planId?: number) {
+export async function createApiKey(data: {
+  label?: string;
+  quotaPerDay?: number;
+  dailyCreditLimit?: number;
+  monthlyCreditLimit?: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  planId?: number;
+}) {
   return apiRequest<{ id: number; key: string }>('/admin/api-keys', {
     method: 'POST',
-    body: JSON.stringify({ label, quota_per_day: quotaPerDay, plan_id: planId }),
+    body: JSON.stringify({
+      label: data.label,
+      quota_per_day: data.quotaPerDay,
+      daily_credit_limit: data.dailyCreditLimit,
+      monthly_credit_limit: data.monthlyCreditLimit,
+      max_input_tokens: data.maxInputTokens,
+      max_output_tokens: data.maxOutputTokens,
+      plan_id: data.planId,
+    }),
   });
 }
 
-export async function updateApiKey(id: number, data: { label?: string; active?: boolean; quotaPerDay?: number; planId?: number }) {
+export async function updateApiKey(id: number, data: {
+  label?: string;
+  active?: boolean;
+  quotaPerDay?: number;
+  dailyCreditLimit?: number;
+  monthlyCreditLimit?: number;
+  maxInputTokens?: number;
+  maxOutputTokens?: number;
+  planId?: number;
+}) {
   return apiRequest<{ success: boolean }>(`/admin/api-keys/${id}`, {
     method: 'PUT',
-    body: JSON.stringify({ ...data, quota_per_day: data.quotaPerDay, plan_id: data.planId }),
+    body: JSON.stringify({
+      ...data,
+      quota_per_day: data.quotaPerDay,
+      daily_credit_limit: data.dailyCreditLimit,
+      monthly_credit_limit: data.monthlyCreditLimit,
+      max_input_tokens: data.maxInputTokens,
+      max_output_tokens: data.maxOutputTokens,
+      plan_id: data.planId,
+    }),
   });
 }
 
@@ -670,6 +754,11 @@ export async function getUsageLogs(params?: {
     page: number;
     limit: number;
     filters: UsageLogFilters;
+    aggregates: UsageLogAggregates;
+    breakdowns: {
+      providers: UsageLogBreakdownRow[];
+      models: UsageLogBreakdownRow[];
+    };
   }>(`/admin/stats/logs?${query.toString()}`);
 }
 

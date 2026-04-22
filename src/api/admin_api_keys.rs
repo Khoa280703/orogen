@@ -13,6 +13,14 @@ pub struct ApiKeyCreateRequest {
     #[serde(default)]
     pub quota_per_day: Option<i32>,
     #[serde(default)]
+    pub daily_credit_limit: Option<i64>,
+    #[serde(default)]
+    pub monthly_credit_limit: Option<i64>,
+    #[serde(default)]
+    pub max_input_tokens: Option<i32>,
+    #[serde(default)]
+    pub max_output_tokens: Option<i32>,
+    #[serde(default)]
     pub plan_id: Option<i32>,
 }
 
@@ -25,6 +33,14 @@ pub struct ApiKeyUpdateRequest {
     #[serde(default)]
     pub quota_per_day: Option<i32>,
     #[serde(default)]
+    pub daily_credit_limit: Option<i64>,
+    #[serde(default)]
+    pub monthly_credit_limit: Option<i64>,
+    #[serde(default)]
+    pub max_input_tokens: Option<i32>,
+    #[serde(default)]
+    pub max_output_tokens: Option<i32>,
+    #[serde(default)]
     pub plan_id: Option<i32>,
 }
 
@@ -35,6 +51,10 @@ pub struct ApiKeyResponse {
     pub label: Option<String>,
     pub active: bool,
     pub quota_per_day: Option<i32>,
+    pub daily_credit_limit: Option<i64>,
+    pub monthly_credit_limit: Option<i64>,
+    pub max_input_tokens: Option<i32>,
+    pub max_output_tokens: Option<i32>,
     pub plan_id: Option<i32>,
     pub plan_name: Option<String>,
     pub created_at: Option<String>,
@@ -71,6 +91,10 @@ pub async fn list_api_keys(
             label: key.label,
             active: key.active.unwrap_or(true),
             quota_per_day: key.quota_per_day,
+            daily_credit_limit: key.daily_credit_limit,
+            monthly_credit_limit: key.monthly_credit_limit,
+            max_input_tokens: key.max_input_tokens,
+            max_output_tokens: key.max_output_tokens,
             plan_id: key.plan_id,
             plan_name: key.plan_name,
             created_at: key.created_at.map(|d| d.to_rfc3339()),
@@ -102,6 +126,10 @@ pub async fn create_api_key(
         &key,
         req.label.as_deref(),
         req.quota_per_day,
+        req.daily_credit_limit,
+        req.monthly_credit_limit,
+        req.max_input_tokens,
+        req.max_output_tokens,
         req.plan_id,
     )
     .await
@@ -148,6 +176,10 @@ pub async fn update_api_key(
         req.label.as_deref(),
         req.active,
         req.quota_per_day,
+        req.daily_credit_limit,
+        req.monthly_credit_limit,
+        req.max_input_tokens,
+        req.max_output_tokens,
         req.plan_id,
     )
     .await

@@ -14,6 +14,7 @@ struct ScriptResponse {
     profile_dir: Option<String>,
     pid: Option<u32>,
     cookies: Option<serde_json::Value>,
+    observed_ip: Option<String>,
 }
 
 #[derive(Debug)]
@@ -28,6 +29,11 @@ pub struct SyncProfileCookiesResult {
     pub profile_dir: String,
     pub cookies: GrokCookies,
     pub message: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct BrowserProxyProbeResult {
+    pub observed_ip: String,
 }
 
 pub fn resolve_profile_dir(account_name: &str) -> Result<PathBuf, String> {
@@ -52,6 +58,29 @@ pub async fn launch_login_browser(account_name: &str) -> Result<LaunchLoginBrows
     })
 }
 
+pub async fn launch_browser_for_url(
+    profile_dir: &std::path::Path,
+    target_url: &str,
+    proxy_url: Option<&str>,
+) -> Result<LaunchLoginBrowserResult, String> {
+    let profile_dir_string = profile_dir.to_string_lossy().to_string();
+    let mut args = vec![
+        "launch-login",
+        profile_dir_string.as_str(),
+        target_url.trim(),
+    ];
+    if let Some(proxy_url) = proxy_url.filter(|value| !value.trim().is_empty()) {
+        args.push(proxy_url.trim());
+    }
+
+    let response = run_script(&args).await?;
+    Ok(LaunchLoginBrowserResult {
+        profile_dir: response.profile_dir.unwrap_or(profile_dir_string),
+        pid: response.pid,
+        message: response.message,
+    })
+}
+
 pub async fn sync_profile_cookies(account_name: &str) -> Result<SyncProfileCookiesResult, String> {
     let profile_dir = resolve_profile_dir(account_name)?;
     let response = run_script(&["sync-cookies", profile_dir.to_string_lossy().as_ref()]).await?;
@@ -66,6 +95,29 @@ pub async fn sync_profile_cookies(account_name: &str) -> Result<SyncProfileCooki
             .unwrap_or_else(|| profile_dir.to_string_lossy().to_string()),
         cookies,
         message: response.message,
+    })
+}
+
+pub async fn probe_browser_proxy(
+    profile_dir: &std::path::Path,
+    proxy_url: &str,
+) -> Result<BrowserProxyProbeResult, String> {
+    let profile_dir_string = profile_dir.to_string_lossy().to_string();
+    let response = run_script(&[
+        "probe-proxy",
+        profile_dir_string.as_str(),
+        "https://api.ipify.org/?format=json",
+        proxy_url.trim(),
+    ])
+    .await?;
+
+    let observed_ip = response
+        .observed_ip
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "Browser proxy probe did not return an exit IP".to_string())?;
+
+    Ok(BrowserProxyProbeResult {
+        observed_ip,
     })
 }
 

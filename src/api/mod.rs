@@ -100,6 +100,18 @@ pub fn router(state: AppState) -> Router {
             "/accounts/:id/refresh-codex-token",
             post(admin_accounts::refresh_codex_account),
         )
+        .route(
+            "/accounts/codex-import/start",
+            post(admin_accounts::start_codex_import_login),
+        )
+        .route(
+            "/accounts/codex-import/:session_id",
+            get(admin_accounts::get_codex_login_status_by_session_id),
+        )
+        .route(
+            "/accounts/codex-import/:session_id/complete",
+            post(admin_accounts::submit_codex_manual_callback_by_session_id),
+        )
         // API Keys
         .route("/api-keys", get(admin_api_keys::list_api_keys))
         .route("/api-keys", post(admin_api_keys::create_api_key))
@@ -1048,6 +1060,7 @@ mod tests {
         pool: &sqlx::PgPool,
         name: &str,
         access_token: &str,
+        _mark_healthy: bool,
     ) -> i32 {
         let account_id = crate::db::accounts::create_account(
             pool,

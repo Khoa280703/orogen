@@ -45,9 +45,9 @@ struct CodexUsagePayload {
 struct CodexRateLimit {
     #[serde(default)]
     limit_reached: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_nullable_rate_window")]
     primary_window: CodexRateWindow,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_nullable_rate_window")]
     secondary_window: CodexRateWindow,
 }
 
@@ -59,6 +59,13 @@ struct CodexRateWindow {
     reset_at: Option<i64>,
 }
 
+fn deserialize_nullable_rate_window<'de, D>(deserializer: D) -> Result<CodexRateWindow, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    Ok(Option::<CodexRateWindow>::deserialize(deserializer)?.unwrap_or_default())
+}
+
 pub async fn fetch_account_usage(
     db: &sqlx::PgPool,
     config: &AppConfig,
@@ -66,12 +73,24 @@ pub async fn fetch_account_usage(
 ) -> Result<ProviderAccountUsage, String> {
     let fetched_at = Utc::now().to_rfc3339();
     let proxy_url = resolve_proxy_url(db, account.proxy_id).await?;
-    let credential = normalize_existing_credential(account)?;
 
     match account.provider_slug.as_str() {
-        PROVIDER_CODEX => {
-            fetch_codex_usage(db, config, account.id, credential, proxy_url, fetched_at).await
-        }
+        PROVIDER_CODEX => match normalize_existing_credential(account) {
+            Ok(credential) => {
+                fetch_codex_usage(db, config, account.id, credential, proxy_url, fetched_at).await
+            }
+            Err(_) => Ok(build_codex_unavailable_usage(
+                account,
+                fetched_at,
+                account
+                    .session_error
+                    .clone()
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or_else(|| {
+                        "Codex login required before usage can be loaded.".to_string()
+                    }),
+            )),
+        },
         _ => Ok(ProviderAccountUsage {
             account_id: account.id,
             provider_slug: account.provider_slug.clone(),
@@ -85,6 +104,23 @@ pub async fn fetch_account_usage(
             )),
             quotas: BTreeMap::new(),
         }),
+    }
+}
+
+fn build_codex_unavailable_usage(
+    account: &accounts::DbAccount,
+    fetched_at: String,
+    message: String,
+) -> ProviderAccountUsage {
+    ProviderAccountUsage {
+        account_id: account.id,
+        provider_slug: PROVIDER_CODEX.to_string(),
+        supported: true,
+        fetched_at,
+        plan: None,
+        limit_reached: None,
+        message: Some(message),
+        quotas: BTreeMap::new(),
     }
 }
 
@@ -173,6 +209,38 @@ fn quota_from_window(window: &CodexRateWindow) -> ProviderAccountQuota {
             chrono::DateTime::from_timestamp(value, 0).map(|date| date.to_rfc3339())
         }),
         unlimited: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CodexUsagePayload, quota_from_window};
+
+    #[test]
+    fn codex_usage_payload_allows_null_rate_windows() {
+        let payload = serde_json::from_str::<CodexUsagePayload>(
+            r#"{
+                "plan_type": "plus",
+                "rate_limit": {
+                    "limit_reached": false,
+                    "primary_window": null,
+                    "secondary_window": {
+                        "used_percent": 12,
+                        "reset_at": 1776825600
+                    }
+                }
+            }"#,
+        )
+        .expect("payload with null windows should deserialize");
+
+        assert_eq!(payload.plan_type.as_deref(), Some("plus"));
+        assert_eq!(payload.rate_limit.primary_window.used_percent, 0);
+        assert_eq!(payload.rate_limit.primary_window.reset_at, None);
+        assert_eq!(payload.rate_limit.secondary_window.used_percent, 12);
+
+        let primary_quota = quota_from_window(&payload.rate_limit.primary_window);
+        assert_eq!(primary_quota.used, 0);
+        assert_eq!(primary_quota.remaining, 100);
     }
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AdminTablePagination } from '@/components/admin/admin-table-pagination';
 import { AdminTableToolbar } from '@/components/admin/admin-table-toolbar';
 import { Button } from '@/components/ui/button';
@@ -48,8 +48,11 @@ import {
   openAccountLoginBrowser,
   syncAccountProfile,
   startCodexAccountLogin,
+  startCodexImportLogin,
   getCodexAccountLoginStatus,
+  getCodexImportLoginStatus,
   submitCodexAccountCallback,
+  submitCodexImportCallback,
   refreshCodexAccountToken,
   type AccountCookiesInput,
   type AccountUsageSummary,
@@ -133,53 +136,43 @@ export default function AccountsPage() {
   const [accountUsageById, setAccountUsageById] = useState<Record<number, AccountUsageSummary>>({});
   const [usageLoadingById, setUsageLoadingById] = useState<Record<number, boolean>>({});
   const [usageErrorById, setUsageErrorById] = useState<Record<number, string | null>>({});
+  const accountsRef = useRef<AccountSummary[]>([]);
+  const editAccountIdRef = useRef<number | null>(null);
+  const codexLoginPending = codexLoginSession && !TERMINAL_CODEX_LOGIN_STATUSES.has(codexLoginSession.status);
+  const credentialPreview = editAccount?.credential_preview || {};
+  const codexSessionLabel = editAccount?.name || name.trim() || 'new Codex account';
 
   useEffect(() => {
-    void loadData();
-  }, []);
+    accountsRef.current = accounts;
+    editAccountIdRef.current = editAccount?.id ?? null;
+  }, [accounts, editAccount]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, activeProviderTab]);
-
-  useEffect(() => {
-    if (!dialogOpen || !editAccount || editAccount.provider_slug !== PROVIDER_CODEX || !codexLoginSession) {
-      return;
-    }
-    if (TERMINAL_CODEX_LOGIN_STATUSES.has(codexLoginSession.status)) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        const result = await getCodexAccountLoginStatus(editAccount.id);
-        setCodexLoginSession(result.session);
-        if (result.session.status === 'completed') {
-          await loadData();
-          setPageNotice(`Codex account ${editAccount.name} connected successfully.`);
-        }
-      } catch (statusError) {
-        if (statusError instanceof Error && statusError.message.includes('No active Codex login session')) {
-          setCodexLoginSession(null);
-          return;
-        }
-        setError(statusError instanceof Error ? statusError.message : 'Failed to refresh Codex login status.');
-      }
-    }, 2000);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [dialogOpen, editAccount, codexLoginSession]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setPageError(null);
       setPageNotice(null);
       const [accountsData, proxiesData] = await Promise.all([listAccounts(), listProxies()]);
+      const existingAccountsById = new Map(accountsRef.current.map((account) => [account.id, account]));
+      const editAccountId = editAccountIdRef.current;
       setAccounts(accountsData);
       setAccountUsageById((current) =>
-        Object.fromEntries(
-          Object.entries(current).filter(([accountId]) => accountsData.some((account) => account.id === Number(accountId)))
-        )
+        Object.fromEntries(Object.entries(current).filter(([accountId]) => {
+          const nextAccount = accountsData.find((account) => account.id === Number(accountId));
+          if (!nextAccount) {
+            return false;
+          }
+
+          const previousAccount = existingAccountsById.get(nextAccount.id);
+          if (!previousAccount) {
+            return true;
+          }
+
+          return (
+            previousAccount.session_status === nextAccount.session_status &&
+            previousAccount.external_account_id === nextAccount.external_account_id &&
+            previousAccount.session_error === nextAccount.session_error
+          );
+        }))
       );
       setUsageLoadingById((current) =>
         Object.fromEntries(
@@ -191,8 +184,8 @@ export default function AccountsPage() {
           Object.entries(current).filter(([accountId]) => accountsData.some((account) => account.id === Number(accountId)))
         )
       );
-      if (editAccount) {
-        setEditAccount(accountsData.find((account) => account.id === editAccount.id) || null);
+      if (editAccountId !== null) {
+        setEditAccount(accountsData.find((account) => account.id === editAccountId) || null);
       }
       setProxies(proxiesData.filter((proxy) => proxy.active));
     } catch (loadError) {
@@ -200,9 +193,9 @@ export default function AccountsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setEditAccount(null);
     setName('');
     setProviderSlug(activeProviderTab || PROVIDER_GROK);
@@ -213,9 +206,70 @@ export default function AccountsPage() {
     setSessionActionPending(null);
     setCodexLoginSession(null);
     setCodexManualCallbackUrl('');
-  };
+  }, [activeProviderTab]);
 
-  const refreshAccountUsage = async (accountId: number) => {
+  const finalizeCodexLoginCompletion = useCallback(async (session: CodexLoginSession) => {
+    setCodexLoginSession(session);
+    setCodexManualCallbackUrl('');
+    await loadData();
+
+    if (editAccount) {
+      setPageNotice(`Codex account ${editAccount.name} connected successfully.`);
+      return;
+    }
+
+    const importedAccount = session.account_id > 0
+      ? accounts.find((account) => account.id === session.account_id)
+      : null;
+    const importedLabel = importedAccount?.name || name.trim() || `account #${session.account_id}`;
+
+    resetForm();
+    setDialogOpen(false);
+    setPageNotice(`Codex account ${importedLabel} imported successfully.`);
+  }, [accounts, editAccount, loadData, name, resetForm]);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, activeProviderTab]);
+
+  useEffect(() => {
+    if (!dialogOpen || providerSlug !== PROVIDER_CODEX || !codexLoginSession) {
+      return;
+    }
+    if (TERMINAL_CODEX_LOGIN_STATUSES.has(codexLoginSession.status)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const result = editAccount
+          ? await getCodexAccountLoginStatus(editAccount.id)
+          : await getCodexImportLoginStatus(codexLoginSession.session_id);
+        setCodexLoginSession(result.session);
+        if (result.session.status === 'completed') {
+          await finalizeCodexLoginCompletion(result.session);
+        }
+      } catch (statusError) {
+        if (
+          statusError instanceof Error &&
+          (statusError.message.includes('No active Codex login session') ||
+            statusError.message.includes('Codex login session was not found'))
+        ) {
+          setCodexLoginSession(null);
+          return;
+        }
+        setError(statusError instanceof Error ? statusError.message : 'Failed to refresh Codex login status.');
+      }
+    }, 2000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [codexLoginSession, dialogOpen, editAccount, finalizeCodexLoginCompletion, providerSlug]);
+
+  const refreshAccountUsage = useCallback(async (accountId: number) => {
     setUsageLoadingById((current) => ({ ...current, [accountId]: true }));
     setUsageErrorById((current) => ({ ...current, [accountId]: null }));
     try {
@@ -229,9 +283,9 @@ export default function AccountsPage() {
     } finally {
       setUsageLoadingById((current) => ({ ...current, [accountId]: false }));
     }
-  };
+  }, []);
 
-  const refreshUsageForAccounts = async (accountIds: number[]) => {
+  const refreshUsageForAccounts = useCallback(async (accountIds: number[]) => {
     const uniqueAccountIds = Array.from(new Set(accountIds));
     if (!uniqueAccountIds.length) {
       return;
@@ -246,15 +300,15 @@ export default function AccountsPage() {
           : `Refreshed usage with ${failedCount} account(s) failed.`
       );
     }
-  };
+  }, [refreshAccountUsage]);
 
   const parseProxyId = () => (selectedProxyId === 'none' ? null : Number(selectedProxyId));
 
-  const getProxyLabel = (account: AccountSummary) => {
+  const getProxyLabel = useCallback((account: AccountSummary) => {
     if (!account.proxy_id) return 'Direct';
     const proxy = proxies.find((item) => item.id === account.proxy_id);
     return proxy ? proxy.url : `Proxy #${account.proxy_id}`;
-  };
+  }, [proxies]);
 
   const providerTabs = useMemo(() => {
     const slugs = Array.from(new Set(accounts.map((account) => account.provider_slug)));
@@ -325,6 +379,11 @@ export default function AccountsPage() {
 
   const handleCreate = async () => {
     setError('');
+
+    if (providerSlug === PROVIDER_CODEX && !credentials.trim()) {
+      setError('Với Codex, hãy bấm Start Codex Login để import account mới, hoặc dán token JSON để import nâng cao.');
+      return;
+    }
 
     if (!validateName(name)) {
       setError('Invalid name. Use only letters, numbers, underscores, hyphens (max 100 chars).');
@@ -487,9 +546,6 @@ export default function AccountsPage() {
   const shouldShowRoutingBadge = (sessionStatus: string, routingState: string) =>
     formatSessionStatus(sessionStatus).toLowerCase() !== formatRoutingState(routingState).toLowerCase();
 
-  const credentialPreview = editAccount?.credential_preview || {};
-  const codexLoginPending = codexLoginSession && !TERMINAL_CODEX_LOGIN_STATUSES.has(codexLoginSession.status);
-
   const handleOpenLogin = async () => {
     if (!editAccount) return;
     setError('');
@@ -521,19 +577,23 @@ export default function AccountsPage() {
   };
 
   const handleStartCodexLogin = async () => {
-    if (!editAccount) return;
     setError('');
     setSessionActionPending('codex-login');
     try {
-      const result = await startCodexAccountLogin(editAccount.id);
+      const result = editAccount
+        ? await startCodexAccountLogin(editAccount.id)
+        : await startCodexImportLogin({
+            name: name.trim() || undefined,
+            proxyId: parseProxyId(),
+          });
       setCodexLoginSession(result.session);
       setCodexManualCallbackUrl('');
       if (result.session.user_code) {
-        setPageNotice(`Codex verification code generated for ${editAccount.name}.`);
+        setPageNotice(`Codex verification code generated for ${codexSessionLabel}.`);
       } else if (result.session.verification_url) {
-        setPageNotice(`Codex browser login link generated for ${editAccount.name}.`);
+        setPageNotice(`Codex browser login link generated for ${codexSessionLabel}.`);
       } else {
-        setPageNotice(`Starting Codex login for ${editAccount.name}.`);
+        setPageNotice(`Starting Codex login for ${codexSessionLabel}.`);
       }
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Failed to start Codex login.');
@@ -543,7 +603,6 @@ export default function AccountsPage() {
   };
 
   const handleSubmitCodexCallback = async () => {
-    if (!editAccount) return;
     const callbackUrl = codexManualCallbackUrl.trim();
     if (!callbackUrl) {
       setError('Paste the full callback URL first.');
@@ -553,12 +612,12 @@ export default function AccountsPage() {
     setError('');
     setSessionActionPending('codex-callback');
     try {
-      const result = await submitCodexAccountCallback(editAccount.id, callbackUrl);
+      const result = editAccount
+        ? await submitCodexAccountCallback(editAccount.id, callbackUrl)
+        : await submitCodexImportCallback(codexLoginSession?.session_id || '', callbackUrl);
       setCodexLoginSession(result.session);
       if (result.session.status === 'completed') {
-        await loadData();
-        setPageNotice(`Codex account ${editAccount.name} connected successfully.`);
-        setCodexManualCallbackUrl('');
+        await finalizeCodexLoginCompletion(result.session);
       } else {
         setPageNotice('Codex callback submitted. Waiting for local login session to finish.');
       }
@@ -570,15 +629,15 @@ export default function AccountsPage() {
   };
 
   const handleRefreshCodexLoginStatus = async () => {
-    if (!editAccount) return;
     setError('');
     setSessionActionPending('codex-status');
     try {
-      const result = await getCodexAccountLoginStatus(editAccount.id);
+      const result = editAccount
+        ? await getCodexAccountLoginStatus(editAccount.id)
+        : await getCodexImportLoginStatus(codexLoginSession?.session_id || '');
       setCodexLoginSession(result.session);
       if (result.session.status === 'completed') {
-        await loadData();
-        setPageNotice(`Codex account ${editAccount.name} connected successfully.`);
+        await finalizeCodexLoginCompletion(result.session);
       }
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'Failed to refresh Codex login status.');
@@ -622,7 +681,7 @@ export default function AccountsPage() {
         proxyLabel.includes(keyword)
       );
     });
-  }, [accounts, activeProviderTab, proxies, search, statusFilter]);
+  }, [accounts, activeProviderTab, getProxyLabel, search, statusFilter]);
 
   const paginatedAccounts = useMemo(() => {
     const start = (page - 1) * pageSize;
@@ -669,7 +728,7 @@ export default function AccountsPage() {
     }
 
     void refreshUsageForAccounts(missingUsageIds);
-  }, [activeProviderTab, accountUsageById, paginatedAccounts, usageLoadingById]);
+  }, [activeProviderTab, accountUsageById, paginatedAccounts, refreshUsageForAccounts, usageLoadingById]);
 
   useEffect(() => {
     if (!dialogOpen || !editAccount || editAccount.provider_slug !== PROVIDER_CODEX) {
@@ -681,7 +740,7 @@ export default function AccountsPage() {
     }
 
     void refreshAccountUsage(editAccount.id);
-  }, [accountUsageById, dialogOpen, editAccount, usageLoadingById]);
+  }, [accountUsageById, dialogOpen, editAccount, refreshAccountUsage, usageLoadingById]);
 
   const renderCodexUsage = (account: AccountSummary, mode: 'table' | 'detail' = 'table') => {
     const usage = accountUsageById[account.id];
@@ -720,15 +779,15 @@ export default function AccountsPage() {
 
     if (mode === 'table') {
       return (
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="border-border bg-background text-foreground">
+        <div className="max-w-full space-y-1 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className="border-border bg-background px-1.5 py-0 text-[10px] text-foreground">
               plan {usage.plan || 'unknown'}
             </Badge>
             {usage.limit_reached !== null && (
               <Badge
                 variant="outline"
-                className={`border ${
+                className={`border px-1.5 py-0 text-[10px] ${
                   usage.limit_reached
                     ? 'border-foreground bg-foreground text-background'
                     : 'border-border bg-muted text-foreground'
@@ -737,27 +796,24 @@ export default function AccountsPage() {
                 {usage.limit_reached ? 'limit reached' : 'within limit'}
               </Badge>
             )}
-            <Button variant="ghost" size="sm" onClick={() => void refreshAccountUsage(account.id)} disabled={isLoadingUsage}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 shrink-0 p-0"
+              onClick={() => void refreshAccountUsage(account.id)}
+              disabled={isLoadingUsage}
+            >
               <RefreshCw className={`h-4 w-4 ${isLoadingUsage ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          {usage.message && (
-            <p className="max-w-[20rem] text-xs text-muted-foreground">{usage.message}</p>
-          )}
-          <div className="grid gap-1 text-xs text-muted-foreground">
-            <p>
-              Session: {sessionQuota ? `${sessionQuota.used}% used, ${sessionQuota.remaining}% left` : '-'}
+          <div className="space-y-0.5 text-[11px] text-muted-foreground">
+            <p className="truncate">
+              S: {sessionQuota ? `${sessionQuota.used}% used, ${sessionQuota.remaining}% left` : '-'}
             </p>
-            <p>
-              Session reset: {formatUsageReset(sessionQuota?.reset_at)}
+            <p className="truncate">
+              W: {weeklyQuota ? `${weeklyQuota.used}% used, ${weeklyQuota.remaining}% left` : '-'}
             </p>
-            <p>
-              Weekly: {weeklyQuota ? `${weeklyQuota.used}% used, ${weeklyQuota.remaining}% left` : '-'}
-            </p>
-            <p>
-              Weekly reset: {formatUsageReset(weeklyQuota?.reset_at)}
-            </p>
-            <p>Fetched: {formatUsageReset(usage.fetched_at)}</p>
+            <p className="truncate">At: {formatUsageReset(usage.fetched_at)}</p>
           </div>
         </div>
       );
@@ -934,79 +990,81 @@ export default function AccountsPage() {
             </div>
           )}
 
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Session</TableHead>
-                <TableHead>Proxy</TableHead>
-                <TableHead>Requests</TableHead>
-                <TableHead>Success</TableHead>
-                <TableHead>Fail</TableHead>
-                {activeProviderTab === PROVIDER_CODEX && <TableHead>Usage</TableHead>}
-                <TableHead>Last Used</TableHead>
-                <TableHead className="w-24">Actions</TableHead>
+                <TableHead className="w-[18%]">Name</TableHead>
+                <TableHead className="w-[18%]">Session</TableHead>
+                <TableHead className="w-[16%]">Proxy</TableHead>
+                <TableHead className="w-[7%]">Req</TableHead>
+                <TableHead className="w-[7%]">Ok</TableHead>
+                <TableHead className="w-[7%]">Fail</TableHead>
+                {activeProviderTab === PROVIDER_CODEX && <TableHead className="w-[17%]">Usage</TableHead>}
+                <TableHead className="w-[10%]">Last Used</TableHead>
+                <TableHead className="w-[72px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {paginatedAccounts.length ? paginatedAccounts.map((account) => (
                 <TableRow key={account.id}>
-                  <TableCell>
-                    <div className="flex items-start gap-2">
+                  <TableCell className="align-top">
+                    <div className="flex min-w-0 items-start gap-2">
                       <div className={`mt-1 h-3 w-3 rounded-full ${getHealthColor(account.fail_count)}`} />
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{account.name}</span>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-medium">{account.name}</span>
                           {!account.active && <Badge variant="secondary">Paused</Badge>}
                         </div>
                         {(account.account_label || account.external_account_id) && (
-                          <p className="text-xs text-slate-500">
+                          <p className="truncate text-xs text-slate-500">
                             {account.account_label || account.external_account_id}
                           </p>
                         )}
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <Badge variant="outline" className={`border ${getSessionTone(account.session_status)}`}>
+                  <TableCell className="align-top">
+                    <div className="min-w-0 space-y-1">
+                      <Badge variant="outline" className={`max-w-full border ${getSessionTone(account.session_status)}`}>
                         {formatSessionStatus(account.session_status)}
                       </Badge>
                       {shouldShowRoutingBadge(account.session_status, account.routing_state) && (
-                        <Badge variant="outline" className={`border ${getRoutingTone(account.routing_state)}`}>
+                        <Badge variant="outline" className={`max-w-full border ${getRoutingTone(account.routing_state)}`}>
                           {formatRoutingState(account.routing_state)}
                         </Badge>
                       )}
                       {account.cooldown_until && account.routing_state === 'cooling_down' && (
-                        <p className="max-w-[16rem] truncate text-xs text-slate-500">
+                        <p className="truncate text-xs text-slate-500">
                           Cooldown until {formatUsageReset(account.cooldown_until)}
                         </p>
                       )}
                       {account.session_error && (
-                        <p className="max-w-[16rem] truncate text-xs text-slate-500">
+                        <p className="truncate text-xs text-slate-500">
                           {account.session_error}
                         </p>
                       )}
                       {account.last_routing_error && account.last_routing_error !== account.session_error && (
-                        <p className="max-w-[16rem] truncate text-xs text-slate-500">
+                        <p className="truncate text-xs text-slate-500">
                           {account.last_routing_error}
                         </p>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="text-slate-400">{getProxyLabel(account)}</TableCell>
-                  <TableCell>{account.request_count}</TableCell>
-                  <TableCell className="text-green-500">{account.success_count}</TableCell>
-                  <TableCell className="text-red-500">{account.fail_count}</TableCell>
+                  <TableCell className="align-top text-slate-400">
+                    <span className="block truncate">{getProxyLabel(account)}</span>
+                  </TableCell>
+                  <TableCell className="align-top">{account.request_count}</TableCell>
+                  <TableCell className="align-top text-green-500">{account.success_count}</TableCell>
+                  <TableCell className="align-top text-red-500">{account.fail_count}</TableCell>
                   {activeProviderTab === PROVIDER_CODEX && (
-                    <TableCell className="min-w-[18rem] align-top">
+                    <TableCell className="align-top">
                       {renderCodexUsage(account)}
                     </TableCell>
                   )}
-                  <TableCell className="text-slate-400">
+                  <TableCell className="align-top text-slate-400">
                     {account.last_used?.slice(0, 10) || '-'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-top">
                     <div className="flex gap-2">
                       <Button variant="ghost" size="sm" onClick={() => openEditDialog(account)}>
                         <Edit className="h-4 w-4" />
@@ -1070,12 +1128,14 @@ export default function AccountsPage() {
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="account-1"
+                placeholder={providerSlug === PROVIDER_CODEX && !editAccount ? 'Optional for Codex login import' : 'account-1'}
                 maxLength={100}
                 disabled={Boolean(editAccount)}
               />
               <p className="text-xs text-slate-500">
-                Letters, numbers, underscores, hyphens only (max 100 chars).
+                {providerSlug === PROVIDER_CODEX && !editAccount
+                  ? 'Optional for Codex login import. If left blank, the system auto-generates a unique name from account metadata.'
+                  : 'Letters, numbers, underscores, hyphens only (max 100 chars).'}
               </p>
             </div>
 
@@ -1127,6 +1187,36 @@ export default function AccountsPage() {
                 Pin a proxy here when this account should always use one fixed exit IP. Grok and Codex both use the selected proxy when present.
               </p>
             </div>
+
+            {providerSlug === PROVIDER_CODEX && !editAccount && (
+              <div className="space-y-5 rounded-2xl border border-border/70 bg-muted/20 p-5">
+                <Card size="sm" className="border border-border/70 bg-background/80 py-0 shadow-sm">
+                  <CardHeader className="border-b">
+                    <CardTitle>Codex Import</CardTitle>
+                    <CardDescription>
+                      No pre-created account needed. Start the Codex login flow, finish auth, then this dialog will create the account automatically.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 py-4">
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" onClick={handleStartCodexLogin} disabled={sessionActionPending !== null}>
+                        {sessionActionPending === 'codex-login' && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                        Start Codex Login
+                      </Button>
+                      {codexLoginSession && (
+                        <Button type="button" variant="outline" onClick={handleRefreshCodexLoginStatus} disabled={sessionActionPending !== null}>
+                          {sessionActionPending === 'codex-status' && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                          Check Login Status
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      The selected proxy is applied to both the Codex CLI login process and the launched browser session when available.
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
 
             {editAccount && (
               <div className="space-y-5 rounded-2xl border border-border/70 bg-muted/20 p-5">
@@ -1311,96 +1401,106 @@ export default function AccountsPage() {
                       </CardContent>
                     </Card>
 
-                    {codexLoginSession && (
-                      <Card size="sm" className="border border-border/70 bg-background/80 py-0 shadow-sm">
-                        <CardHeader className="border-b">
-                          <CardTitle>Codex Login Session</CardTitle>
-                          <CardDescription>
-                            Live state for the current device login flow.
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-3 py-4 text-sm">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline" className="border-border text-foreground">
-                              {formatCodexLoginStatus(codexLoginSession.status)}
-                            </Badge>
-                            {codexLoginPending && <span className="text-xs text-muted-foreground">Polling automatically every 2s.</span>}
-                          </div>
-
-                          <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
-                            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Verification URL</p>
-                            {codexLoginSession.verification_url ? (
-                              <a
-                                href={codexLoginSession.verification_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="break-all text-sm font-medium text-primary underline underline-offset-2"
-                              >
-                                {codexLoginSession.verification_url}
-                              </a>
-                            ) : (
-                              <p className="text-sm text-muted-foreground">Waiting for login link...</p>
-                            )}
-                          </div>
-
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
-                              <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Code</p>
-                              <p className="break-all font-mono text-sm text-foreground">
-                                {codexLoginSession.user_code || 'Waiting for code...'}
-                              </p>
-                            </div>
-                            <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
-                              <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Expires</p>
-                              <p className="text-sm text-foreground">
-                                {codexLoginSession.expires_at
-                                  ? formatUsageReset(codexLoginSession.expires_at)
-                                  : '-'}
-                              </p>
-                            </div>
-                          </div>
-
-                          {codexLoginSession.message && (
-                            <div className="rounded-lg border border-border/60 bg-muted/25 p-3 text-sm text-foreground">
-                              {codexLoginSession.message}
-                            </div>
-                          )}
-
-                          {codexLoginPending && (
-                            <div className="space-y-2 rounded-lg border border-border/60 bg-muted/25 p-4">
-                              <p className="text-sm text-foreground">
-                                SSH / remote case: paste the full <code>http://localhost:1455/auth/callback?...</code> URL here.
-                              </p>
-                              <Textarea
-                                value={codexManualCallbackUrl}
-                                onChange={(e) => setCodexManualCallbackUrl(e.target.value)}
-                                placeholder="http://localhost:1455/auth/callback?code=...&scope=...&state=..."
-                                className="min-h-24 resize-y font-mono text-[11px] [field-sizing:fixed]"
-                              />
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  onClick={handleSubmitCodexCallback}
-                                  disabled={sessionActionPending !== null}
-                                >
-                                  {sessionActionPending === 'codex-callback' && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
-                                  Submit Callback URL
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
-                            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Local Command</p>
-                            <p className="break-all font-mono text-[11px] text-foreground">{codexLoginSession.command}</p>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
                   </>
                 )}
               </div>
+            )}
+
+            {providerSlug === PROVIDER_CODEX && codexLoginSession && (
+              <Card size="sm" className="border border-border/70 bg-background/80 py-0 shadow-sm">
+                <CardHeader className="border-b">
+                  <CardTitle>Codex Login Session</CardTitle>
+                  <CardDescription>
+                    Live state for the current device login flow.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3 py-4 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="border-border text-foreground">
+                      {formatCodexLoginStatus(codexLoginSession.status)}
+                    </Badge>
+                    {codexLoginPending && <span className="text-xs text-muted-foreground">Polling automatically every 2s.</span>}
+                  </div>
+
+                  <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
+                    <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Verification URL</p>
+                    {codexLoginSession.verification_url ? (
+                      <a
+                        href={codexLoginSession.verification_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="break-all text-sm font-medium text-primary underline underline-offset-2"
+                      >
+                        {codexLoginSession.verification_url}
+                      </a>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Waiting for login link...</p>
+                    )}
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
+                      <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Code</p>
+                      <p className="break-all font-mono text-sm text-foreground">
+                        {codexLoginSession.user_code || 'Waiting for code...'}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
+                      <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Expires</p>
+                      <p className="text-sm text-foreground">
+                        {codexLoginSession.expires_at
+                          ? formatUsageReset(codexLoginSession.expires_at)
+                          : '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {codexLoginSession.message && (
+                    <div className="rounded-lg border border-border/60 bg-muted/25 p-3 text-sm text-foreground">
+                      {codexLoginSession.message}
+                    </div>
+                  )}
+
+                  {codexLoginPending && (
+                    <div className="min-w-0 space-y-2 rounded-lg border border-border/60 bg-muted/25 p-4">
+                      <p className="text-sm text-foreground">
+                        SSH / remote case: paste the full <code>http://localhost:1455/auth/callback?...</code> URL here.
+                      </p>
+                      <Input
+                        value={codexManualCallbackUrl}
+                        onChange={(e) => setCodexManualCallbackUrl(e.target.value)}
+                        placeholder="http://localhost:1455/auth/callback?code=...&scope=...&state=..."
+                        className="w-full min-w-0 max-w-full font-mono text-[11px]"
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleSubmitCodexCallback}
+                          disabled={sessionActionPending !== null}
+                        >
+                          {sessionActionPending === 'codex-callback' && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                          Submit Callback URL
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleRefreshCodexLoginStatus}
+                          disabled={sessionActionPending !== null}
+                        >
+                          {sessionActionPending === 'codex-status' && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                          Refresh Status
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-lg border border-border/60 bg-muted/25 p-3">
+                    <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Local Command</p>
+                    <p className="break-all font-mono text-[11px] text-foreground">{codexLoginSession.command}</p>
+                  </div>
+                </CardContent>
+              </Card>
             )}
 
             {providerSlug === PROVIDER_GROK ? (
@@ -1426,7 +1526,7 @@ export default function AccountsPage() {
                   className="h-36 resize-y font-mono [field-sizing:fixed]"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Recommended flow is create account first, then use Start Codex Login. Raw token JSON is optional and mainly for advanced recovery/import cases.
+                  Preferred flow: Start Codex Login above, finish auth, then the account is created automatically. Raw token JSON stays available for advanced recovery/import cases.
                 </p>
               </div>
             )}
@@ -1437,7 +1537,7 @@ export default function AccountsPage() {
               Cancel
             </Button>
             <Button onClick={editAccount ? handleUpdate : handleCreate}>
-              {editAccount ? 'Save' : 'Create'}
+              {editAccount ? 'Save' : providerSlug === PROVIDER_CODEX ? 'Import Tokens' : 'Create'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -64,6 +64,24 @@ pub struct UsageLogFilterOptions {
     pub providers: Vec<String>,
 }
 
+#[derive(Debug, Serialize)]
+pub struct UsageLogAggregatesResponse {
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub cached_tokens: i64,
+    pub credits_used: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct UsageLogBreakdownRowResponse {
+    pub label: String,
+    pub requests: i64,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub cached_tokens: i64,
+    pub credits_used: i64,
+}
+
 /// Get stats overview
 pub async fn get_stats_overview(
     axum::extract::State(state): axum::extract::State<AppState>,
@@ -149,6 +167,38 @@ pub async fn get_usage_logs(
     .await
     .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    let aggregates = usage_logs::get_usage_log_aggregates(
+        &db,
+        params.search.as_deref(),
+        params.status.as_deref(),
+        params.model.as_deref(),
+        params.provider.as_deref(),
+    )
+    .await
+    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let provider_breakdown = usage_logs::get_provider_usage_breakdown(
+        &db,
+        params.search.as_deref(),
+        params.status.as_deref(),
+        params.model.as_deref(),
+        params.provider.as_deref(),
+        8,
+    )
+    .await
+    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let model_breakdown = usage_logs::get_model_usage_breakdown(
+        &db,
+        params.search.as_deref(),
+        params.status.as_deref(),
+        params.model.as_deref(),
+        params.provider.as_deref(),
+        8,
+    )
+    .await
+    .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
+
     let status_options = usage_logs::list_usage_log_statuses(&db)
         .await
         .map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -169,6 +219,30 @@ pub async fn get_usage_logs(
             statuses: status_options,
             models: model_options,
             providers: provider_options,
-        }
+        },
+        "aggregates": UsageLogAggregatesResponse {
+            prompt_tokens: aggregates.prompt_tokens.unwrap_or(0),
+            completion_tokens: aggregates.completion_tokens.unwrap_or(0),
+            cached_tokens: aggregates.cached_tokens.unwrap_or(0),
+            credits_used: aggregates.credits_used.unwrap_or(0),
+        },
+        "breakdowns": {
+            "providers": provider_breakdown.into_iter().map(|row| UsageLogBreakdownRowResponse {
+                label: row.label.unwrap_or_else(|| "unknown".to_string()),
+                requests: row.requests.unwrap_or(0),
+                prompt_tokens: row.prompt_tokens.unwrap_or(0),
+                completion_tokens: row.completion_tokens.unwrap_or(0),
+                cached_tokens: row.cached_tokens.unwrap_or(0),
+                credits_used: row.credits_used.unwrap_or(0),
+            }).collect::<Vec<_>>(),
+            "models": model_breakdown.into_iter().map(|row| UsageLogBreakdownRowResponse {
+                label: row.label.unwrap_or_else(|| "unknown".to_string()),
+                requests: row.requests.unwrap_or(0),
+                prompt_tokens: row.prompt_tokens.unwrap_or(0),
+                completion_tokens: row.completion_tokens.unwrap_or(0),
+                cached_tokens: row.cached_tokens.unwrap_or(0),
+                credits_used: row.credits_used.unwrap_or(0),
+            }).collect::<Vec<_>>(),
+        },
     })))
 }

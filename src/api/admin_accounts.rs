@@ -72,6 +72,14 @@ pub struct CodexManualCallbackRequest {
     pub callback_url: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CodexImportStartRequest {
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub proxy_id: Option<i32>,
+}
+
 pub async fn list_accounts(
     axum::extract::State(state): axum::extract::State<AppState>,
 ) -> Result<Json<Vec<AccountResponse>>, StatusCode> {
@@ -382,10 +390,14 @@ pub async fn start_codex_login(
         ));
     }
 
-    let session =
-        codex_oauth::start_device_login(&state.db, &state.config, &state.codex_login_sessions, id)
-            .await
-            .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+    let session = codex_oauth::start_device_login(
+        &state.db,
+        &state.config,
+        &state.codex_login_sessions,
+        &account,
+    )
+    .await
+    .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
 
     Ok(Json(json!({ "success": true, "session": session })))
 }
@@ -447,6 +459,53 @@ pub async fn submit_codex_manual_callback(
         codex_oauth::submit_manual_callback_url(&state.codex_login_sessions, id, &req.callback_url)
             .await
             .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+
+    Ok(Json(json!({ "success": true, "session": session })))
+}
+
+pub async fn start_codex_import_login(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    Json(req): Json<CodexImportStartRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let session = codex_oauth::start_import_login(
+        &state.db,
+        &state.config,
+        &state.codex_login_sessions,
+        req.name.as_deref(),
+        req.proxy_id,
+    )
+    .await
+    .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
+
+    Ok(Json(json!({ "success": true, "session": session })))
+}
+
+pub async fn get_codex_login_status_by_session_id(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    Path(session_id): Path<String>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let session = codex_oauth::get_login_status_by_session_id(&state.codex_login_sessions, &session_id)
+        .await
+        .ok_or((
+            StatusCode::NOT_FOUND,
+            "Codex login session was not found".to_string(),
+        ))?;
+
+    Ok(Json(json!({ "success": true, "session": session })))
+}
+
+pub async fn submit_codex_manual_callback_by_session_id(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    Path(session_id): Path<String>,
+    Json(req): Json<CodexManualCallbackRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let session = codex_oauth::submit_manual_callback_url_by_session_id(
+        &state.codex_login_sessions,
+        &session_id,
+        &req.callback_url,
+    )
+    .await
+    .map_err(|error| (StatusCode::BAD_REQUEST, error))?;
 
     Ok(Json(json!({ "success": true, "session": session })))
 }

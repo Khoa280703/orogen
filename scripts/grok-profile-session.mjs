@@ -5,10 +5,10 @@ import { existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 
-const [, , command, rawProfileDir] = process.argv;
+const [, , command, rawProfileDir, rawTargetUrl, rawProxyUrl] = process.argv;
 
 if (!command || !rawProfileDir) {
-  fail("Usage: node scripts/grok-profile-session.mjs <launch-login|sync-cookies> <profile-dir>");
+  fail("Usage: node scripts/grok-profile-session.mjs <launch-login|sync-cookies> <profile-dir> [target-url] [proxy-url]");
 }
 
 const profileDir = rawProfileDir.trim();
@@ -24,15 +24,22 @@ if (!chromeBin) {
 await mkdir(profileDir, { recursive: true });
 
 if (command === "launch-login") {
+  const targetUrl = (rawTargetUrl || "https://grok.com/").trim() || "https://grok.com/";
+  const proxyUrl = (rawProxyUrl || "").trim();
+  const launchArgs = [
+    `--user-data-dir=${profileDir}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--new-window",
+  ];
+  if (proxyUrl) {
+    launchArgs.push(`--proxy-server=${normalizeChromeProxy(proxyUrl)}`);
+  }
+  launchArgs.push(targetUrl);
+
   const child = spawn(
     chromeBin,
-    [
-      `--user-data-dir=${profileDir}`,
-      "--no-first-run",
-      "--no-default-browser-check",
-      "--new-window",
-      "https://grok.com/",
-    ],
+    launchArgs,
     {
       detached: true,
       stdio: "ignore",
@@ -45,7 +52,43 @@ if (command === "launch-login") {
     ok: true,
     profileDir,
     pid: child.pid,
-    message: "Browser launched. Finish login in that window, then close it before syncing cookies.",
+    message: proxyUrl
+      ? "Browser launched with assigned proxy. Finish login in that window, then close it before syncing cookies."
+      : "Browser launched. Finish login in that window, then close it before syncing cookies.",
+  });
+  process.exit(0);
+}
+
+if (command === "probe-proxy") {
+  const targetUrl = (rawTargetUrl || "https://api.ipify.org/?format=json").trim() || "https://api.ipify.org/?format=json";
+  const proxyUrl = (rawProxyUrl || "").trim();
+  if (!proxyUrl) {
+    fail("Proxy URL is required for probe-proxy.", { profileDir });
+  }
+
+  const probeResult = await runHeadlessChrome({
+    profileDir,
+    proxyUrl,
+    navigateUrl: targetUrl,
+    handler: async (cdp) => {
+      const payload = await readBodyText(cdp);
+      const observedIp = extractIpAddress(payload);
+      if (!observedIp) {
+        throw new Error(`Could not determine exit IP from response: ${payload.slice(0, 200)}`);
+      }
+      return {
+        observedIp,
+        observedBody: payload,
+      };
+    },
+  });
+
+  emit({
+    ok: true,
+    profileDir,
+    observedIp: probeResult.observedIp,
+    observedBody: probeResult.observedBody,
+    message: `Proxy browser probe succeeded. Exit IP: ${probeResult.observedIp}`,
   });
   process.exit(0);
 }
@@ -54,100 +97,66 @@ if (command !== "sync-cookies") {
   fail(`Unknown command: ${command}`);
 }
 
-const port = 9222 + Math.floor(Math.random() * 1000);
-const chrome = spawn(
-  chromeBin,
-  [
-    `--user-data-dir=${profileDir}`,
-    "--headless=new",
-    "--disable-gpu",
-    "--no-first-run",
-    "--no-default-browser-check",
-    "--remote-debugging-address=127.0.0.1",
-    `--remote-debugging-port=${port}`,
-    "about:blank",
-  ],
-  {
-    stdio: ["ignore", "ignore", "pipe"],
-    env: buildChromeEnv({ requireDisplay: false }),
-  },
-);
-
-let stderr = "";
-chrome.stderr?.on("data", (chunk) => {
-  stderr += chunk.toString();
-});
-
 try {
-  const pageWsUrl = await waitForDebuggerTarget(port);
-  const cdp = await connectCdp(pageWsUrl);
+  const syncResult = await runHeadlessChrome({
+    profileDir,
+    navigateUrl: "https://grok.com/",
+    handler: async (cdp) => {
+      const { cookies } = await cdp.send("Network.getCookies", {
+        urls: ["https://grok.com/", "https://x.ai/", "https://accounts.x.ai/"],
+      });
 
-  try {
-    await cdp.send("Page.enable");
-    await cdp.send("Network.enable");
-    await cdp.send("Page.navigate", { url: "https://grok.com/" });
-    await delay(1500);
+      const cookieMap = new Map();
+      for (const cookie of cookies || []) {
+        if (!cookie?.name || typeof cookie.value !== "string") continue;
+        cookieMap.set(cookie.name, cookie.value);
+      }
 
-    const { cookies } = await cdp.send("Network.getCookies", {
-      urls: ["https://grok.com/", "https://x.ai/", "https://accounts.x.ai/"],
-    });
+      const sso = cookieMap.get("sso");
+      if (!sso) {
+        throw new Error("Profile does not contain Grok session cookie `sso`. Login may be missing or session expired.");
+      }
 
-    const cookieMap = new Map();
-    for (const cookie of cookies || []) {
-      if (!cookie?.name || typeof cookie.value !== "string") continue;
-      cookieMap.set(cookie.name, cookie.value);
-    }
+      const orderedNames = Array.from(cookieMap.keys()).sort((left, right) => {
+        if (left === "sso") return -1;
+        if (right === "sso") return 1;
+        if (left === "sso-rw") return -1;
+        if (right === "sso-rw") return 1;
+        if (left === "cf_clearance") return -1;
+        if (right === "cf_clearance") return 1;
+        return left.localeCompare(right);
+      });
 
-    const sso = cookieMap.get("sso");
-    if (!sso) {
-      fail(
-        "Profile does not contain Grok session cookie `sso`. Login may be missing or session expired.",
-        { profileDir },
-      );
-    }
+      const raw = orderedNames
+        .map((name) => `${name}=${cookieMap.get(name)}`)
+        .join("; ");
 
-    const orderedNames = Array.from(cookieMap.keys()).sort((left, right) => {
-      if (left === "sso") return -1;
-      if (right === "sso") return 1;
-      if (left === "sso-rw") return -1;
-      if (right === "sso-rw") return 1;
-      if (left === "cf_clearance") return -1;
-      if (right === "cf_clearance") return 1;
-      return left.localeCompare(right);
-    });
+      const payload = {
+        sso,
+        ...(cookieMap.get("sso-rw") ? { "sso-rw": cookieMap.get("sso-rw") } : {}),
+        ...(cookieMap.get("cf_clearance") ? { cf_clearance: cookieMap.get("cf_clearance") } : {}),
+        _raw: raw,
+      };
 
-    const raw = orderedNames
-      .map((name) => `${name}=${cookieMap.get(name)}`)
-      .join("; ");
+      for (const [name, value] of cookieMap.entries()) {
+        payload[name] = value;
+      }
 
-    const payload = {
-      sso,
-      ...(cookieMap.get("sso-rw") ? { "sso-rw": cookieMap.get("sso-rw") } : {}),
-      ...(cookieMap.get("cf_clearance") ? { cf_clearance: cookieMap.get("cf_clearance") } : {}),
-      _raw: raw,
-    };
+      return {
+        cookies: payload,
+        orderedCount: orderedNames.length,
+      };
+    },
+  });
 
-    for (const [name, value] of cookieMap.entries()) {
-      payload[name] = value;
-    }
-
-    emit({
-      ok: true,
-      profileDir,
-      cookies: payload,
-      message: `Synced ${orderedNames.length} cookies from profile.`,
-    });
-  } finally {
-    cdp.close();
-  }
+  emit({
+    ok: true,
+    profileDir,
+    cookies: syncResult.cookies,
+    message: `Synced ${syncResult.orderedCount} cookies from profile.`,
+  });
 } catch (error) {
-  const details = stderr.trim();
-  fail(
-    details ? `${String(error)} ${details}` : String(error),
-    { profileDir },
-  );
-} finally {
-  chrome.kill("SIGTERM");
+  fail(String(error), { profileDir });
 }
 
 function emit(payload) {
@@ -157,6 +166,61 @@ function emit(payload) {
 function fail(message, extra = {}) {
   emit({ ok: false, error: message, ...extra });
   process.exit(1);
+}
+
+function normalizeChromeProxy(proxyUrl) {
+  return proxyUrl.trim().replace(/\/+$/, "");
+}
+
+async function runHeadlessChrome({ profileDir, navigateUrl, proxyUrl = "", handler }) {
+  const port = 9222 + Math.floor(Math.random() * 1000);
+  const args = [
+    `--user-data-dir=${profileDir}`,
+    "--headless=new",
+    "--disable-gpu",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--remote-debugging-address=127.0.0.1",
+    `--remote-debugging-port=${port}`,
+  ];
+  if (proxyUrl.trim()) {
+    args.push(`--proxy-server=${normalizeChromeProxy(proxyUrl)}`);
+  }
+  args.push("about:blank");
+
+  const chrome = spawn(
+    chromeBin,
+    args,
+    {
+      stdio: ["ignore", "ignore", "pipe"],
+      env: buildChromeEnv({ requireDisplay: false }),
+    },
+  );
+
+  let stderr = "";
+  chrome.stderr?.on("data", (chunk) => {
+    stderr += chunk.toString();
+  });
+
+  try {
+    const pageWsUrl = await waitForDebuggerTarget(port, chrome);
+    const cdp = await connectCdp(pageWsUrl);
+
+    try {
+      await cdp.send("Page.enable");
+      await cdp.send("Network.enable");
+      await cdp.send("Page.navigate", { url: navigateUrl });
+      await delay(1800);
+      return await handler(cdp);
+    } finally {
+      cdp.close();
+    }
+  } catch (error) {
+    const details = stderr.trim();
+    throw new Error(details ? `${String(error)} ${details}` : String(error));
+  } finally {
+    chrome.kill("SIGTERM");
+  }
 }
 
 function resolveChromeBinary() {
@@ -202,7 +266,7 @@ function buildChromeEnv({ requireDisplay }) {
   return env;
 }
 
-async function waitForDebuggerTarget(port) {
+async function waitForDebuggerTarget(port, chromeProcess) {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     try {
       const response = await fetch(`http://127.0.0.1:${port}/json/list`);
@@ -217,7 +281,7 @@ async function waitForDebuggerTarget(port) {
       // Wait for Chrome to finish booting.
     }
 
-    if (chromeExited(chrome)) {
+    if (chromeExited(chromeProcess)) {
       throw new Error("Chrome exited before remote debugging became ready.");
     }
 
@@ -225,6 +289,39 @@ async function waitForDebuggerTarget(port) {
   }
 
   throw new Error("Timed out waiting for Chrome remote debugging endpoint.");
+}
+
+async function readBodyText(cdp) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const payload = await cdp.send("Runtime.evaluate", {
+      expression: "document.body ? document.body.innerText : ''",
+      returnByValue: true,
+      awaitPromise: true,
+    });
+    const value = String(payload?.result?.value || "").trim();
+    if (value) {
+      return value;
+    }
+    await delay(250);
+  }
+
+  return "";
+}
+
+function extractIpAddress(payload) {
+  if (!payload) return null;
+
+  const jsonMatch = payload.match(/\"ip\"\\s*:\\s*\"([^\"]+)\"/i);
+  if (jsonMatch?.[1]) {
+    return jsonMatch[1];
+  }
+
+  const textMatch = payload.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+  if (textMatch?.[0]) {
+    return textMatch[0];
+  }
+
+  return null;
 }
 
 function chromeExited(child) {

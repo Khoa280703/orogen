@@ -19,13 +19,26 @@ use crate::account::types::{
     AUTH_MODE_CODEX_OAUTH, CREDENTIAL_TYPE_CODEX_OAUTH_TOKENS, CodexTokens,
 };
 use crate::config::AppConfig;
-use crate::db::{account_credentials, accounts};
+use crate::db::{account_credentials, accounts, proxies};
+use crate::services::grok_profile_browser;
 
 const DEFAULT_CODEX_OAUTH_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const CODEX_LOGIN_EXPIRY_MINUTES: i64 = 15;
 const CODEX_LOGIN_STALE_MINUTES: i64 = 20;
+const CODEX_DEVICE_VERIFICATION_URL: &str = "https://auth.openai.com/codex/device";
 
 pub type CodexLoginSessionStore = Arc<RwLock<HashMap<String, CodexLoginSession>>>;
+
+#[derive(Debug, Clone)]
+enum CodexLoginTarget {
+    ExistingAccount {
+        account_id: i32,
+    },
+    CreateAccount {
+        requested_name: Option<String>,
+        proxy_id: Option<i32>,
+    },
+}
 
 #[derive(Debug, Clone)]
 pub struct CodexLoginSession {
@@ -38,6 +51,7 @@ pub struct CodexLoginSession {
     pub command: String,
     pub message: Option<String>,
     pub started_at: chrono::DateTime<Utc>,
+    target: CodexLoginTarget,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -89,19 +103,53 @@ pub async fn start_device_login(
     db: &sqlx::PgPool,
     config: &AppConfig,
     sessions: &CodexLoginSessionStore,
-    account_id: i32,
+    account: &accounts::DbAccount,
 ) -> Result<CodexLoginSessionView, String> {
     cleanup_stale_login_sessions(sessions).await;
+    let account_id = account.id;
+    let home_dir = codex_account_home_dir(config, account_id);
+    let browser_profile_dir = codex_browser_profile_dir(config, account_id, &account.name);
+    let proxy_url = resolve_proxy_url(db, account.proxy_id).await?;
 
     if let Some(existing) = current_login_session_for_account(sessions, account_id).await {
         if !is_terminal_login_status(&existing.status) {
+            if !existing.verification_url.trim().is_empty() {
+                let relaunch_message = match launch_codex_auth_browser(
+                    config,
+                    &browser_profile_dir,
+                    &existing.verification_url,
+                    proxy_url.as_deref(),
+                )
+                .await
+                {
+                    Ok(Some(message)) => message,
+                    Ok(None) => "Login session is still waiting for verification.".to_string(),
+                    Err(error) => format!(
+                        "Login session is still waiting for verification. Automatic browser relaunch failed: {error}"
+                    ),
+                };
+                update_login_session(
+                    sessions,
+                    &existing.session_id,
+                    &existing.status,
+                    None,
+                    None,
+                    Some(relaunch_message),
+                )
+                .await;
+                if let Some(updated) = get_login_session(sessions, &existing.session_id).await {
+                    return Ok(updated.to_view());
+                }
+            }
+
             return Ok(existing.to_view());
         }
     }
 
-    let home_dir = codex_account_home_dir(config, account_id);
     std::fs::create_dir_all(home_dir.join(".codex"))
         .map_err(|error| format!("Create Codex account home failed: {error}"))?;
+    std::fs::create_dir_all(&browser_profile_dir)
+        .map_err(|error| format!("Create Codex browser profile dir failed: {error}"))?;
 
     let session = CodexLoginSession {
         session_id: random_token(24),
@@ -110,9 +158,10 @@ pub async fn start_device_login(
         verification_url: String::new(),
         user_code: None,
         expires_at: None,
-        command: format!("HOME={} codex login", home_dir.to_string_lossy()),
+        command: codex_login_command_preview(&home_dir, proxy_url.as_deref()),
         message: Some("Starting native Codex browser login session...".to_string()),
         started_at: Utc::now(),
+        target: CodexLoginTarget::ExistingAccount { account_id },
     };
 
     let session_id = session.session_id.clone();
@@ -128,6 +177,8 @@ pub async fn start_device_login(
         session_id,
         account_id,
         home_dir,
+        browser_profile_dir,
+        proxy_url,
     ));
 
     for _ in 0..30 {
@@ -145,12 +196,90 @@ pub async fn start_device_login(
         .ok_or_else(|| "Codex login session disappeared unexpectedly".to_string())
 }
 
+pub async fn start_import_login(
+    db: &sqlx::PgPool,
+    config: &AppConfig,
+    sessions: &CodexLoginSessionStore,
+    requested_name: Option<&str>,
+    proxy_id: Option<i32>,
+) -> Result<CodexLoginSessionView, String> {
+    cleanup_stale_login_sessions(sessions).await;
+
+    let home_dir = codex_import_home_dir(config);
+    let browser_profile_dir = codex_import_browser_profile_dir(config);
+    let proxy_url = resolve_proxy_url(db, proxy_id).await?;
+    std::fs::create_dir_all(home_dir.join(".codex"))
+        .map_err(|error| format!("Create Codex import home failed: {error}"))?;
+    std::fs::create_dir_all(&browser_profile_dir)
+        .map_err(|error| format!("Create Codex import browser profile dir failed: {error}"))?;
+
+    let session = CodexLoginSession {
+        session_id: random_token(24),
+        account_id: 0,
+        status: "starting".to_string(),
+        verification_url: String::new(),
+        user_code: None,
+        expires_at: None,
+        command: codex_login_command_preview(&home_dir, proxy_url.as_deref()),
+        message: Some("Starting Codex import session...".to_string()),
+        started_at: Utc::now(),
+        target: CodexLoginTarget::CreateAccount {
+            requested_name: requested_name
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string),
+            proxy_id,
+        },
+    };
+
+    let session_id = session.session_id.clone();
+    sessions
+        .write()
+        .await
+        .insert(session.session_id.clone(), session.clone());
+
+    tokio::spawn(monitor_device_login(
+        db.clone(),
+        config.clone(),
+        sessions.clone(),
+        session_id,
+        0,
+        home_dir,
+        browser_profile_dir,
+        proxy_url,
+    ));
+
+    for _ in 0..30 {
+        if let Some(current) = get_login_session(sessions, &session.session_id).await {
+            if current.status != "starting" || is_terminal_login_status(&current.status) {
+                return Ok(current.to_view());
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+
+    get_login_session(sessions, &session.session_id)
+        .await
+        .map(|session| session.to_view())
+        .ok_or_else(|| "Codex import session disappeared unexpectedly".to_string())
+}
+
 pub async fn get_login_status_for_account(
     sessions: &CodexLoginSessionStore,
     account_id: i32,
 ) -> Option<CodexLoginSessionView> {
     cleanup_stale_login_sessions(sessions).await;
     current_login_session_for_account(sessions, account_id)
+        .await
+        .map(|session| session.to_view())
+}
+
+pub async fn get_login_status_by_session_id(
+    sessions: &CodexLoginSessionStore,
+    session_id: &str,
+) -> Option<CodexLoginSessionView> {
+    cleanup_stale_login_sessions(sessions).await;
+    get_login_session(sessions, session_id)
         .await
         .map(|session| session.to_view())
 }
@@ -194,6 +323,50 @@ pub async fn submit_manual_callback_url(
     }
 
     get_login_session(sessions, &session.session_id)
+        .await
+        .map(|current| current.to_view())
+        .ok_or_else(|| "Codex login session disappeared unexpectedly".to_string())
+}
+
+pub async fn submit_manual_callback_url_by_session_id(
+    sessions: &CodexLoginSessionStore,
+    session_id: &str,
+    callback_url: &str,
+) -> Result<CodexLoginSessionView, String> {
+    cleanup_stale_login_sessions(sessions).await;
+
+    let session = get_login_session(sessions, session_id)
+        .await
+        .ok_or_else(|| "Codex login session was not found".to_string())?;
+
+    if is_terminal_login_status(&session.status) {
+        return Ok(session.to_view());
+    }
+
+    let callback = validate_manual_callback_url(callback_url, &session)?;
+    let client = reqwest::Client::builder()
+        .redirect(Policy::limited(10))
+        .build()
+        .map_err(|error| format!("Create local callback client failed: {error}"))?;
+
+    client
+        .get(callback)
+        .send()
+        .await
+        .map_err(|error| format!("Submit local Codex callback failed: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("Local Codex callback was rejected: {error}"))?;
+
+    for _ in 0..30 {
+        if let Some(current) = get_login_session(sessions, session_id).await {
+            if current.status != "awaiting_user" {
+                return Ok(current.to_view());
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+
+    get_login_session(sessions, session_id)
         .await
         .map(|current| current.to_view())
         .ok_or_else(|| "Codex login session disappeared unexpectedly".to_string())
@@ -319,16 +492,25 @@ async fn monitor_device_login(
     config: AppConfig,
     sessions: CodexLoginSessionStore,
     session_id: String,
-    account_id: i32,
+    _account_id: i32,
     home_dir: PathBuf,
+    browser_profile_dir: PathBuf,
+    proxy_url: Option<String>,
 ) {
-    let mut child = match Command::new("codex")
+    let target = match get_login_session(&sessions, &session_id).await {
+        Some(session) => session.target.clone(),
+        None => return,
+    };
+
+    let mut login_command = Command::new("codex");
+    login_command
         .arg("login")
         .env("HOME", &home_dir)
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .spawn()
-    {
+        .stderr(std::process::Stdio::piped());
+    apply_proxy_env(&mut login_command, proxy_url.as_deref());
+
+    let mut child = match login_command.spawn() {
         Ok(child) => child,
         Err(error) => {
             update_login_session(
@@ -355,6 +537,7 @@ async fn monitor_device_login(
 
     let mut combined_output = String::new();
     let mut output_stream_open = true;
+    let mut attempted_browser_launch = false;
 
     loop {
         tokio::select! {
@@ -375,22 +558,59 @@ async fn monitor_device_login(
                 }
 
                 if let Some(url) = extract_auth_url(&sanitized) {
+                    let launch_message = if !attempted_browser_launch {
+                        attempted_browser_launch = true;
+                        match launch_codex_auth_browser(
+                            &config,
+                            &browser_profile_dir,
+                            &url,
+                            proxy_url.as_deref(),
+                        ).await {
+                            Ok(Some(message)) => Some(message),
+                            Ok(None) => Some("Open the login URL in your browser and finish the Codex sign-in flow. Keep this dialog open until the account is connected.".to_string()),
+                            Err(error) => Some(format!(
+                                "Open the login URL in your browser and finish the Codex sign-in flow. Automatic browser launch failed: {error}"
+                            )),
+                        }
+                    } else {
+                        Some("Open the login URL in your browser and finish the Codex sign-in flow. Keep this dialog open until the account is connected.".to_string())
+                    };
                     update_login_session(
                         &sessions,
                         &session_id,
                         "awaiting_user",
                         Some(url),
                         None,
-                        Some("Open the login URL in your browser and finish the Codex sign-in flow. Keep this dialog open until the account is connected.".to_string()),
+                        launch_message,
                     ).await;
                 } else if let Some(code) = extract_device_user_code(&sanitized) {
+                    let launch_message = if !attempted_browser_launch {
+                        attempted_browser_launch = true;
+                        match launch_codex_auth_browser(
+                            &config,
+                            &browser_profile_dir,
+                            CODEX_DEVICE_VERIFICATION_URL,
+                            proxy_url.as_deref(),
+                        ).await {
+                            Ok(Some(message)) => Some(format!(
+                                "{} Enter the code shown below after the page opens.",
+                                message
+                            )),
+                            Ok(None) => Some("Open the verification URL, enter the code, then keep this dialog open until the account is connected.".to_string()),
+                            Err(error) => Some(format!(
+                                "Open the verification URL, enter the code, then keep this dialog open until the account is connected. Automatic browser launch failed: {error}"
+                            )),
+                        }
+                    } else {
+                        Some("Open the verification URL, enter the code, then keep this dialog open until the account is connected.".to_string())
+                    };
                     update_login_session(
                         &sessions,
                         &session_id,
                         "awaiting_user",
-                        None,
+                        Some(CODEX_DEVICE_VERIFICATION_URL.to_string()),
                         Some(code),
-                        Some("Open the verification URL, enter the code, then keep this dialog open until the account is connected.".to_string()),
+                        launch_message,
                     ).await;
                 }
             }
@@ -400,30 +620,55 @@ async fn monitor_device_login(
                         match load_native_auth_tokens(&home_dir.join(".codex").join("auth.json")) {
                             Ok(tokens) => {
                                 let persist_result = async {
-                                    persist_tokens(&db, account_id, &tokens).await?;
-                                    accounts::update_account(
-                                        &db,
-                                        account_id,
-                                        None,
-                                        Some(true),
-                                        None,
-                                        Some(Some(home_dir.to_string_lossy().to_string())),
-                                    )
-                                    .await
-                                    .map_err(|error| format!("Persist Codex home path failed: {error}"))?;
-                                    Ok::<(), String>(())
+                                    match &target {
+                                        CodexLoginTarget::ExistingAccount { account_id } => {
+                                            persist_tokens(&db, *account_id, &tokens).await?;
+                                            accounts::update_account(
+                                                &db,
+                                                *account_id,
+                                                None,
+                                                None,
+                                                None,
+                                                Some(Some(home_dir.to_string_lossy().to_string())),
+                                            )
+                                            .await
+                                            .map_err(|error| format!("Persist Codex home path failed: {error}"))?;
+                                            Ok((*account_id, "Codex account connected successfully.".to_string()))
+                                        }
+                                        CodexLoginTarget::CreateAccount {
+                                            requested_name,
+                                            proxy_id,
+                                        } => {
+                                            let created_account_id = create_account_from_codex_tokens(
+                                                &db,
+                                                &home_dir,
+                                                requested_name.as_deref(),
+                                                *proxy_id,
+                                                &tokens,
+                                            )
+                                            .await?;
+                                            Ok((
+                                                created_account_id,
+                                                format!(
+                                                    "Codex account imported successfully as account #{}.",
+                                                    created_account_id
+                                                ),
+                                            ))
+                                        }
+                                    }
                                 }
                                 .await;
 
                                 match persist_result {
-                                    Ok(()) => {
+                                    Ok((resolved_account_id, success_message)) => {
+                                        assign_session_account_id(&sessions, &session_id, resolved_account_id).await;
                                         update_login_session(
                                             &sessions,
                                             &session_id,
                                             "completed",
                                             None,
                                             None,
-                                            Some("Codex account connected successfully.".to_string()),
+                                            Some(success_message),
                                         ).await;
                                     }
                                     Err(error) => {
@@ -579,6 +824,250 @@ fn codex_account_home_dir(config: &AppConfig, account_id: i32) -> PathBuf {
         .join("codex-accounts")
         .join(account_id.to_string())
         .join("home")
+}
+
+fn codex_import_home_dir(config: &AppConfig) -> PathBuf {
+    let data_root = Path::new(&config.data_dir)
+        .parent()
+        .unwrap_or_else(|| Path::new("data"));
+    data_root.join("codex-import").join("home")
+}
+
+fn codex_browser_profile_dir(config: &AppConfig, account_id: i32, account_name: &str) -> PathBuf {
+    let data_root = Path::new(&config.data_dir)
+        .parent()
+        .unwrap_or_else(|| Path::new("data"));
+    data_root
+        .join("browser-profiles")
+        .join(format!(
+            "codex-login-{}-{}",
+            account_id,
+            sanitize_account_name(account_name)
+        ))
+}
+
+fn codex_import_browser_profile_dir(config: &AppConfig) -> PathBuf {
+    let data_root = Path::new(&config.data_dir)
+        .parent()
+        .unwrap_or_else(|| Path::new("data"));
+    data_root.join("browser-profiles").join("codex-import")
+}
+
+fn sanitize_account_name(account_name: &str) -> String {
+    let sanitized = account_name
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+
+    if sanitized.is_empty() {
+        "account".to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn codex_login_command_preview(home_dir: &Path, proxy_url: Option<&str>) -> String {
+    match proxy_url.filter(|value| !value.trim().is_empty()) {
+        Some(proxy_url) => format!(
+            "HOME={} HTTPS_PROXY={} HTTP_PROXY={} ALL_PROXY={} codex login",
+            home_dir.to_string_lossy(),
+            proxy_url,
+            proxy_url,
+            proxy_url
+        ),
+        None => format!("HOME={} codex login", home_dir.to_string_lossy()),
+    }
+}
+
+fn apply_proxy_env(command: &mut Command, proxy_url: Option<&str>) {
+    let Some(proxy_url) = proxy_url.filter(|value| !value.trim().is_empty()) else {
+        return;
+    };
+
+    command
+        .env("HTTP_PROXY", proxy_url)
+        .env("HTTPS_PROXY", proxy_url)
+        .env("ALL_PROXY", proxy_url)
+        .env("http_proxy", proxy_url)
+        .env("https_proxy", proxy_url)
+        .env("all_proxy", proxy_url);
+}
+
+async fn launch_codex_auth_browser(
+    config: &AppConfig,
+    browser_profile_dir: &Path,
+    target_url: &str,
+    proxy_url: Option<&str>,
+) -> Result<Option<String>, String> {
+    let browser_proxy_proof = match proxy_url.filter(|value| !value.trim().is_empty()) {
+        Some(proxy_url) => Some(
+            grok_profile_browser::probe_browser_proxy(browser_profile_dir, proxy_url)
+                .await
+                .map(|result| result.observed_ip),
+        ),
+        None => None,
+    };
+
+    match grok_profile_browser::launch_browser_for_url(browser_profile_dir, target_url, proxy_url)
+        .await
+    {
+        Ok(result) => {
+            let base_message = result.message.unwrap_or_else(|| {
+                "Opened Codex login browser on the server.".to_string()
+            });
+
+            Ok(Some(match browser_proxy_proof {
+                Some(Ok(observed_ip)) => format!(
+                    "{} Browser proxy verified with exit IP {}. Keep this dialog open until the account is connected.",
+                    base_message, observed_ip
+                ),
+                Some(Err(error)) => format!(
+                    "{} Browser launch worked, but proxy verification failed: {}. Keep this dialog open until the account is connected.",
+                    base_message, error
+                ),
+                None => format!(
+                    "{} Keep this dialog open until the account is connected.",
+                    base_message
+                ),
+            }))
+        }
+        Err(error) => {
+            if browser_launch_is_optional(config) {
+                Ok(Some(match browser_proxy_proof {
+                    Some(Ok(observed_ip)) => format!(
+                        "Open the login URL in your browser and finish the Codex sign-in flow. Assigned browser proxy was verified with exit IP {}.",
+                        observed_ip
+                    ),
+                    Some(Err(probe_error)) => format!(
+                        "Open the login URL in your browser and finish the Codex sign-in flow. Automatic browser launch failed: {}. Proxy verification also failed: {}.",
+                        error,
+                        probe_error
+                    ),
+                    None => "Open the login URL in your browser and finish the Codex sign-in flow. Keep this dialog open until the account is connected.".to_string(),
+                }))
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
+fn browser_launch_is_optional(_config: &AppConfig) -> bool {
+    true
+}
+
+async fn resolve_proxy_url(
+    db: &sqlx::PgPool,
+    proxy_id: Option<i32>,
+) -> Result<Option<String>, String> {
+    let Some(id) = proxy_id else {
+        return Ok(None);
+    };
+
+    let proxy = proxies::get_proxy(db, id)
+        .await
+        .map_err(|error| format!("Load proxy failed: {error}"))?;
+
+    Ok(proxy.and_then(|value| value.active.unwrap_or(true).then_some(value.url)))
+}
+
+async fn create_account_from_codex_tokens(
+    db: &sqlx::PgPool,
+    home_dir: &Path,
+    requested_name: Option<&str>,
+    proxy_id: Option<i32>,
+    tokens: &CodexTokens,
+) -> Result<i32, String> {
+    let account_name = generate_unique_import_account_name(db, requested_name, tokens).await?;
+    let account_id = accounts::create_account(
+        db,
+        &account_name,
+        "codex",
+        &json!({}),
+        proxy_id,
+        Some(&home_dir.to_string_lossy()),
+        Some(AUTH_MODE_CODEX_OAUTH),
+    )
+    .await
+    .map_err(|error| format!("Create imported Codex account failed: {error}"))?;
+
+    persist_tokens(db, account_id, tokens).await?;
+    accounts::update_account(
+        db,
+        account_id,
+        None,
+        None,
+        None,
+        Some(Some(home_dir.to_string_lossy().to_string())),
+    )
+    .await
+    .map_err(|error| format!("Persist imported Codex home path failed: {error}"))?;
+
+    Ok(account_id)
+}
+
+async fn generate_unique_import_account_name(
+    db: &sqlx::PgPool,
+    requested_name: Option<&str>,
+    tokens: &CodexTokens,
+) -> Result<String, String> {
+    let existing_accounts = accounts::list_accounts(db)
+        .await
+        .map_err(|error| format!("Load existing accounts failed: {error}"))?;
+    let existing_names = existing_accounts
+        .into_iter()
+        .map(|account| account.name)
+        .collect::<std::collections::HashSet<_>>();
+
+    let requested = requested_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(sanitize_account_name);
+    let email_based = tokens
+        .email
+        .as_deref()
+        .and_then(|email| email.split('@').next())
+        .map(sanitize_account_name);
+    let account_based = tokens
+        .account_id
+        .as_deref()
+        .map(|value| sanitize_account_name(&format!("codex-{}", &value[..value.len().min(8)])));
+
+    let base_name = requested
+        .filter(|value| !value.is_empty())
+        .or(email_based.filter(|value| !value.is_empty()))
+        .or(account_based.filter(|value| !value.is_empty()))
+        .unwrap_or_else(|| "codex-account".to_string());
+
+    if !existing_names.contains(&base_name) {
+        return Ok(base_name);
+    }
+
+    for index in 2..=9999 {
+        let candidate = format!("{}-{}", base_name, index);
+        if !existing_names.contains(&candidate) {
+            return Ok(candidate);
+        }
+    }
+
+    Err("Could not derive a unique account name for imported Codex account".to_string())
+}
+
+async fn assign_session_account_id(
+    sessions: &CodexLoginSessionStore,
+    session_id: &str,
+    account_id: i32,
+) {
+    let mut guard = sessions.write().await;
+    if let Some(session) = guard.get_mut(session_id) {
+        session.account_id = account_id;
+    }
 }
 
 fn oauth_client_id(config: &AppConfig) -> String {
