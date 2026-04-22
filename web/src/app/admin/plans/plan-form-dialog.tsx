@@ -29,6 +29,13 @@ export interface PlanFormData {
   slug: string;
   requests_per_day: string;
   requests_per_month: string;
+  daily_credits: string;
+  monthly_credits: string;
+  max_input_tokens_per_request: string;
+  max_output_tokens_per_request: string;
+  input_per_token: string;
+  output_per_token: string;
+  cached_input_per_token: string;
   price_usd: string;
   price_vnd: string;
   sort_order: string;
@@ -58,6 +65,13 @@ type TextFieldKey =
   | 'price_vnd'
   | 'requests_per_day'
   | 'requests_per_month'
+  | 'daily_credits'
+  | 'monthly_credits'
+  | 'max_input_tokens_per_request'
+  | 'max_output_tokens_per_request'
+  | 'input_per_token'
+  | 'output_per_token'
+  | 'cached_input_per_token'
   | 'sort_order'
   | 'rate_limit';
 
@@ -88,6 +102,13 @@ const pricingAndQuotaFields: TextFieldConfig[] = [
   { key: 'price_vnd', label: 'Price VND', type: 'number', placeholder: 'Optional' },
   { key: 'requests_per_day', label: 'Requests / day', type: 'number', placeholder: '-1', helper: '-1 means unlimited' },
   { key: 'requests_per_month', label: 'Requests / month', type: 'number', placeholder: '-1', helper: '-1 means unlimited' },
+  { key: 'daily_credits', label: 'Credits / day', type: 'number', placeholder: 'Optional', helper: 'Primary quota for metered chat usage' },
+  { key: 'monthly_credits', label: 'Credits / month', type: 'number', placeholder: 'Optional', helper: 'Stops overuse even when request counts differ' },
+  { key: 'max_input_tokens_per_request', label: 'Max input tokens / request', type: 'number', placeholder: 'Optional' },
+  { key: 'max_output_tokens_per_request', label: 'Max output tokens / request', type: 'number', placeholder: 'Optional' },
+  { key: 'input_per_token', label: 'Input credits / token', type: 'number', placeholder: '1' },
+  { key: 'output_per_token', label: 'Output credits / token', type: 'number', placeholder: '4' },
+  { key: 'cached_input_per_token', label: 'Cached credits / token', type: 'number', placeholder: '0.2' },
   { key: 'sort_order', label: 'Sort order', type: 'number', placeholder: '0' },
   { key: 'rate_limit', label: 'Rate limit', placeholder: '10/min', helper: 'Shown in plan features and enforced by backend' },
 ];
@@ -101,7 +122,9 @@ const toggleFields: ToggleConfig[] = [
 
 export const defaultPlanForm: PlanFormData = {
   name: '', slug: '', requests_per_day: '', requests_per_month: '',
-  price_usd: '', price_vnd: '', sort_order: '0', active: true,
+  daily_credits: '', monthly_credits: '', max_input_tokens_per_request: '',
+  max_output_tokens_per_request: '', input_per_token: '1', output_per_token: '4',
+  cached_input_per_token: '0.2', price_usd: '', price_vnd: '', sort_order: '0', active: true,
   streaming: true, priority: false, dedicated_support: false,
   rate_limit: '10/min', selected_model_ids: [], model_limits: {},
 };
@@ -282,6 +305,19 @@ export function PlanFormDialog({ open, onClose, onSaved, editPlanId, initialData
           priority: form.priority,
           dedicated_support: form.dedicated_support,
           rate_limit: form.rate_limit,
+          quota: {
+            daily_credits: form.daily_credits ? parseInt(form.daily_credits, 10) : null,
+            monthly_credits: form.monthly_credits ? parseInt(form.monthly_credits, 10) : null,
+            max_input_tokens_per_request: form.max_input_tokens_per_request ? parseInt(form.max_input_tokens_per_request, 10) : null,
+            max_output_tokens_per_request: form.max_output_tokens_per_request ? parseInt(form.max_output_tokens_per_request, 10) : null,
+            pricing: {
+              default: {
+                input_per_token: form.input_per_token ? parseFloat(form.input_per_token) : 1,
+                output_per_token: form.output_per_token ? parseFloat(form.output_per_token) : 4,
+                cached_input_per_token: form.cached_input_per_token ? parseFloat(form.cached_input_per_token) : 0.2,
+              },
+            },
+          },
           model_limits: buildModelLimitsPayload(),
         },
         active: form.active,

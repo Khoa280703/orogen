@@ -11,10 +11,10 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::api::chat_completions::{
-    ApiKey, UsageContext, finish_completion, resolve_usage_context, track_api_key_usage,
+    ApiKey, UsageContext, finish_completion_with_usage, resolve_usage_context, track_api_key_usage,
 };
 use crate::api::consumer_api_support::finalize_stream_provider_error;
-use crate::api::plan_enforcement::{REQUEST_KIND_CHAT, enforce_plan_access};
+use crate::api::plan_enforcement::{REQUEST_KIND_CHAT, enforce_usage_context};
 use crate::api::request_orchestrator::{
     CollectedChatOutput, UNEXPECTED_STREAM_END_MESSAGE, extract_text_content_strict,
     provider_model_slug, resolve_model_route, start_orchestrated_chat_stream,
@@ -22,6 +22,7 @@ use crate::api::request_orchestrator::{
 };
 use crate::error::AppError;
 use crate::providers::{ChatMessage, ChatStreamEvent};
+use crate::services::usage_metering::estimate_chat_input_tokens;
 
 #[derive(Debug, Deserialize)]
 pub struct ResponsesRequest {
@@ -32,6 +33,8 @@ pub struct ResponsesRequest {
     pub instructions: Option<String>,
     #[serde(default)]
     pub stream: bool,
+    #[serde(default)]
+    pub max_output_tokens: Option<i64>,
     #[serde(default)]
     pub tools: Vec<Value>,
     #[serde(default)]
@@ -56,7 +59,7 @@ pub async fn create_response(
     track_api_key_usage(&state, &api_key).await;
 
     let route = resolve_model_route(&state, body.model.as_deref()).await?;
-    let usage_context = resolve_usage_context(
+    let mut usage_context = resolve_usage_context(
         &state,
         &api_key,
         &route.provider_slug,
@@ -65,21 +68,14 @@ pub async fn create_response(
     )
     .await?;
 
-    enforce_plan_access(
-        &state.db,
-        usage_context.user_id,
-        usage_context.api_key_id,
-        usage_context.plan_id,
-        usage_context.request_kind,
-        &route.public_model_slug,
-    )
-    .await?;
-
     let reasoning_effort = resolve_reasoning_effort(&body)?;
     let provider_model =
         provider_model_slug(&route.upstream_model_slug, reasoning_effort.as_deref());
     let (system_prompt, messages) =
         normalize_responses_input(body.instructions.as_deref(), &body.input)?;
+    usage_context.estimated_input_tokens = estimate_chat_input_tokens(&system_prompt, &messages);
+    usage_context.requested_output_tokens = body.max_output_tokens;
+    usage_context.plan_id = Some(enforce_usage_context(&state.db, &usage_context, &route.public_model_slug).await?);
     let response_id = format!("resp_{}", uuid::Uuid::new_v4().simple());
     let created_at = chrono::Utc::now().timestamp();
 
@@ -113,6 +109,7 @@ pub async fn create_response(
         created_at,
         &route.public_model_slug,
         &body.instructions,
+        &usage_context,
         &output,
     ))
     .into_response())
@@ -309,7 +306,16 @@ async fn stream_response(
                             ));
                         }
                         ChatStreamEvent::Done => {
-                            finish_completion(&state, &usage_context, account_id, "success", true, started_at).await;
+                            finish_completion_with_usage(
+                                &state,
+                                &usage_context,
+                                account_id,
+                                "success",
+                                true,
+                                started_at,
+                                &output.content,
+                                &output.thinking,
+                            ).await;
 
                             if reasoning_started {
                                 let reasoning_id = reasoning_item_id(&response_id, reasoning_output_index);
@@ -466,7 +472,16 @@ async fn stream_response(
                     }
                 }
 
-                finish_completion(&state, &usage_context, account_id, "stream_interrupted", false, started_at).await;
+                finish_completion_with_usage(
+                    &state,
+                    &usage_context,
+                    account_id,
+                    "stream_interrupted",
+                    false,
+                    started_at,
+                    &output.content,
+                    &output.thinking,
+                ).await;
                 yield Ok(sse_event(
                     "response.failed",
                     with_sequence(
@@ -669,9 +684,12 @@ fn completed_response_json(
     created_at: i64,
     model: &str,
     instructions: &Option<String>,
+    usage_context: &UsageContext,
     output: &CollectedChatOutput,
 ) -> Value {
     let mut items = Vec::new();
+    let usage_snapshot =
+        crate::api::chat_completions::build_success_usage_snapshot(usage_context, &output.content, &output.thinking);
 
     if !output.thinking.is_empty() {
         items.push(json!({
@@ -711,9 +729,9 @@ fn completed_response_json(
         "output_text": output.content,
         "parallel_tool_calls": false,
         "usage": {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
+            "input_tokens": usage_snapshot.input_tokens,
+            "output_tokens": usage_snapshot.output_tokens,
+            "total_tokens": usage_snapshot.input_tokens + usage_snapshot.output_tokens,
         },
     })
 }
@@ -755,6 +773,7 @@ mod tests {
             input: json!("hello"),
             instructions: None,
             stream: false,
+            max_output_tokens: None,
             tools: vec![json!({ "type": "function", "name": "lookup_weather" })],
             reasoning: None,
             reasoning_effort: None,
@@ -831,11 +850,27 @@ mod tests {
 
     #[test]
     fn completed_response_uses_public_model_slug() {
+        let usage_context = super::UsageContext {
+            api_key_id: None,
+            user_id: None,
+            plan_id: None,
+            provider_slug: "codex".to_string(),
+            model: "gpt-5.1".to_string(),
+            request_kind: crate::api::plan_enforcement::REQUEST_KIND_CHAT,
+            estimated_input_tokens: 42,
+            requested_output_tokens: None,
+            api_key_quota_per_day: None,
+            api_key_daily_credit_limit: None,
+            api_key_monthly_credit_limit: None,
+            api_key_max_input_tokens: None,
+            api_key_max_output_tokens: None,
+        };
         let payload = super::completed_response_json(
             "resp_123",
             1_713_000_000,
             "gpt-5.1",
             &Some("be precise".to_string()),
+            &usage_context,
             &super::CollectedChatOutput {
                 content: "final answer".to_string(),
                 thinking: String::new(),

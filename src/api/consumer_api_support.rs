@@ -26,6 +26,13 @@ pub(crate) fn build_user_usage_context(
         provider_slug,
         model,
         request_kind,
+        estimated_input_tokens: 0,
+        requested_output_tokens: None,
+        api_key_quota_per_day: None,
+        api_key_daily_credit_limit: None,
+        api_key_monthly_credit_limit: None,
+        api_key_max_input_tokens: None,
+        api_key_max_output_tokens: None,
     }
 }
 

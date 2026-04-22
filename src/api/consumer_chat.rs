@@ -9,16 +9,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::AppState;
-use crate::api::chat_completions::{duration_to_latency_ms, record_usage};
+use crate::api::chat_completions::{
+    build_success_usage_snapshot, duration_to_latency_ms, record_usage_with_snapshot,
+};
 use crate::api::consumer_api_support::{
     build_user_usage_context, finalize_stream_provider_error, mark_account_success,
     start_chat_stream_with_retry,
 };
-use crate::api::plan_enforcement::{REQUEST_KIND_CHAT, enforce_user_plan_access};
+use crate::api::plan_enforcement::{REQUEST_KIND_CHAT, enforce_usage_context};
 use crate::db::{conversations, messages};
 use crate::error::AppError;
 use crate::middleware::jwt_auth::JwtUser;
 use crate::providers::{ChatMessage, ChatStreamEvent};
+use crate::services::usage_metering::estimate_chat_input_tokens;
 
 const DEFAULT_CHAT_MODEL: &str = "grok-3";
 
@@ -59,7 +62,6 @@ pub async fn create_conversation(
     Json(body): Json<CreateConversationRequest>,
 ) -> Result<Json<conversations::Conversation>, AppError> {
     let model = body.model.unwrap_or_else(|| DEFAULT_CHAT_MODEL.to_string());
-    enforce_user_plan_access(&state.db, user.user_id, REQUEST_KIND_CHAT, &model).await?;
     let conversation = conversations::create_conversation(
         &state.db,
         user.user_id,
@@ -144,8 +146,30 @@ pub async fn send_message(
         };
     let model = resolved_model.slug.clone();
     let provider_slug = resolved_model.provider_slug.clone();
-    let plan_id =
-        enforce_user_plan_access(&state.db, user.user_id, REQUEST_KIND_CHAT, &model).await?;
+    let existing_history = messages::list_messages(&state.db, id)
+        .await
+        .map_err(db_error)?
+        .into_iter()
+        .map(|item| ChatMessage {
+            role: item.role,
+            content: item.content,
+        })
+        .collect::<Vec<_>>();
+    let mut history = existing_history.clone();
+    history.push(ChatMessage {
+        role: "user".to_string(),
+        content: content.clone(),
+    });
+    let mut usage = build_user_usage_context(
+        user.user_id,
+        provider_slug.clone(),
+        model.clone(),
+        REQUEST_KIND_CHAT,
+    );
+    usage.estimated_input_tokens = estimate_chat_input_tokens("", &history);
+    usage.requested_output_tokens = None;
+    let plan_id = enforce_usage_context(&state.db, &usage, &model).await?;
+    usage.plan_id = Some(plan_id);
 
     if messages::count_messages(&state.db, id)
         .await
@@ -175,32 +199,12 @@ pub async fn send_message(
         .await
         .map_err(db_error)?;
 
-    let history = messages::list_messages(&state.db, id)
-        .await
-        .map_err(db_error)?
-        .into_iter()
-        .map(|item| ChatMessage {
-            role: item.role,
-            content: item.content,
-        })
-        .collect::<Vec<_>>();
-
     let provider = state
         .providers
         .chat_provider(&provider_slug)
         .ok_or_else(|| {
             AppError::Internal(format!("Chat provider not registered: {provider_slug}"))
         })?;
-    let usage = {
-        let mut usage = build_user_usage_context(
-            user.user_id,
-            provider_slug.clone(),
-            model.clone(),
-            REQUEST_KIND_CHAT,
-        );
-        usage.plan_id = Some(plan_id);
-        usage
-    };
     let (mut rx, account_id, _account_name) = start_chat_stream_with_retry(
         &state,
         provider,
@@ -216,6 +220,7 @@ pub async fn send_message(
     let event_stream = stream! {
         let started = std::time::Instant::now();
         let mut assistant = String::new();
+        let mut reasoning = String::new();
 
         while let Some(event) = rx.recv().await {
             match event {
@@ -224,6 +229,7 @@ pub async fn send_message(
                     yield Ok(Event::default().event("token").data(json!({ "content": token }).to_string()));
                 }
                 ChatStreamEvent::Thinking(thinking) => {
+                    reasoning.push_str(&thinking);
                     yield Ok(Event::default().event("thinking").data(json!({ "content": thinking }).to_string()));
                 }
                 ChatStreamEvent::Done => {
@@ -233,6 +239,7 @@ pub async fn send_message(
                         id,
                         account_id,
                         &assistant,
+                        &reasoning,
                         &model,
                         &provider_slug,
                         "success",
@@ -266,6 +273,7 @@ pub async fn send_message(
             id,
             account_id,
             &assistant,
+            &reasoning,
             &model,
             &provider_slug,
             "stream_interrupted",
@@ -295,6 +303,7 @@ async fn finish_chat(
     conversation_id: i32,
     account_id: Option<i32>,
     assistant: &str,
+    reasoning: &str,
     model_slug: &str,
     provider_slug: &str,
     status: &str,
@@ -321,12 +330,14 @@ async fn finish_chat(
             let _ = crate::db::accounts::update_health_counts(&state.db, id, false).await;
         }
     }
-    record_usage(
+    record_usage_with_snapshot(
         state,
         usage,
         account_id,
         status,
         duration_to_latency_ms(started.elapsed()),
+        build_success_usage_snapshot(usage, assistant, reasoning),
+        success || !assistant.trim().is_empty() || !reasoning.trim().is_empty(),
     )
     .await;
 }

@@ -9,6 +9,10 @@ pub struct DbApiKey {
     pub label: Option<String>,
     pub active: Option<bool>,
     pub quota_per_day: Option<i32>,
+    pub daily_credit_limit: Option<i64>,
+    pub monthly_credit_limit: Option<i64>,
+    pub max_input_tokens: Option<i32>,
+    pub max_output_tokens: Option<i32>,
     pub plan_id: Option<i32>,
     pub plan_name: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
@@ -22,6 +26,11 @@ pub struct ApiKey {
     pub user_id: Option<i32>,
     pub plan_id: Option<i32>,
     pub active: bool,
+    pub quota_per_day: Option<i32>,
+    pub daily_credit_limit: Option<i64>,
+    pub monthly_credit_limit: Option<i64>,
+    pub max_input_tokens: Option<i32>,
+    pub max_output_tokens: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub last_used_at: Option<DateTime<Utc>>,
 }
@@ -45,6 +54,11 @@ fn map_api_key_row(row: sqlx::postgres::PgRow) -> ApiKey {
         user_id: row.get("user_id"),
         plan_id: row.get("plan_id"),
         active: row.get::<Option<bool>, _>("active").unwrap_or(true),
+        quota_per_day: row.get("quota_per_day"),
+        daily_credit_limit: row.get("daily_credit_limit"),
+        monthly_credit_limit: row.get("monthly_credit_limit"),
+        max_input_tokens: row.get("max_input_tokens"),
+        max_output_tokens: row.get("max_output_tokens"),
         created_at: row
             .get::<Option<DateTime<Utc>>, _>("created_at")
             .unwrap_or(Utc::now()),
@@ -55,7 +69,8 @@ fn map_api_key_row(row: sqlx::postgres::PgRow) -> ApiKey {
 pub async fn list_by_user(pool: &sqlx::PgPool, user_id: i32) -> Result<Vec<ApiKey>, sqlx::Error> {
     let rows = sqlx::query(
         r#"
-        SELECT id, key, label, user_id, plan_id, active, created_at, last_used_at
+        SELECT id, key, label, user_id, plan_id, active, quota_per_day, daily_credit_limit,
+               monthly_credit_limit, max_input_tokens, max_output_tokens, created_at, last_used_at
         FROM api_keys
         WHERE user_id = $1
         ORDER BY created_at DESC
@@ -79,7 +94,8 @@ pub async fn create_key(
         r#"
         INSERT INTO api_keys (key, label, user_id, plan_id, active)
         VALUES ($1, $2, $3, NULL, true)
-        RETURNING id, key, label, user_id, plan_id, active, created_at, last_used_at
+        RETURNING id, key, label, user_id, plan_id, active, quota_per_day, daily_credit_limit,
+                  monthly_credit_limit, max_input_tokens, max_output_tokens, created_at, last_used_at
         "#,
     )
     .bind(&key)
@@ -94,7 +110,8 @@ pub async fn create_key(
 pub async fn get_key(pool: &sqlx::PgPool, id: i32) -> Result<Option<ApiKey>, sqlx::Error> {
     let row = sqlx::query(
         r#"
-        SELECT id, key, label, user_id, plan_id, active, created_at, last_used_at
+        SELECT id, key, label, user_id, plan_id, active, quota_per_day, daily_credit_limit,
+               monthly_credit_limit, max_input_tokens, max_output_tokens, created_at, last_used_at
         FROM api_keys
         WHERE id = $1
         "#,
@@ -112,7 +129,8 @@ pub async fn get_key_by_value(
 ) -> Result<Option<ApiKey>, sqlx::Error> {
     let row = sqlx::query(
         r#"
-        SELECT id, key, label, user_id, plan_id, active, created_at, last_used_at
+        SELECT id, key, label, user_id, plan_id, active, quota_per_day, daily_credit_limit,
+               monthly_credit_limit, max_input_tokens, max_output_tokens, created_at, last_used_at
         FROM api_keys
         WHERE key = $1 AND active = true
         "#,
@@ -155,7 +173,9 @@ pub async fn revoke_key(pool: &sqlx::PgPool, id: i32) -> Result<bool, sqlx::Erro
 pub async fn list_api_keys(pool: &sqlx::PgPool) -> Result<Vec<DbApiKey>, sqlx::Error> {
     let rows = sqlx::query(
         r#"
-        SELECT ak.id, ak.key, ak.label, ak.active, ak.quota_per_day, ak.plan_id, p.name AS plan_name, ak.created_at
+        SELECT ak.id, ak.key, ak.label, ak.active, ak.quota_per_day, ak.daily_credit_limit,
+               ak.monthly_credit_limit, ak.max_input_tokens, ak.max_output_tokens,
+               ak.plan_id, p.name AS plan_name, ak.created_at
         FROM api_keys ak
         LEFT JOIN plans p ON ak.plan_id = p.id
         ORDER BY ak.created_at DESC
@@ -172,6 +192,10 @@ pub async fn list_api_keys(pool: &sqlx::PgPool) -> Result<Vec<DbApiKey>, sqlx::E
             label: row.get("label"),
             active: row.get("active"),
             quota_per_day: row.get("quota_per_day"),
+            daily_credit_limit: row.get("daily_credit_limit"),
+            monthly_credit_limit: row.get("monthly_credit_limit"),
+            max_input_tokens: row.get("max_input_tokens"),
+            max_output_tokens: row.get("max_output_tokens"),
             plan_id: row.get("plan_id"),
             plan_name: row.get("plan_name"),
             created_at: row.get("created_at"),
@@ -182,7 +206,9 @@ pub async fn list_api_keys(pool: &sqlx::PgPool) -> Result<Vec<DbApiKey>, sqlx::E
 pub async fn get_api_key(pool: &sqlx::PgPool, id: i32) -> Result<Option<DbApiKey>, sqlx::Error> {
     let row = sqlx::query(
         r#"
-        SELECT ak.id, ak.key, ak.label, ak.active, ak.quota_per_day, ak.plan_id, p.name AS plan_name, ak.created_at
+        SELECT ak.id, ak.key, ak.label, ak.active, ak.quota_per_day, ak.daily_credit_limit,
+               ak.monthly_credit_limit, ak.max_input_tokens, ak.max_output_tokens,
+               ak.plan_id, p.name AS plan_name, ak.created_at
         FROM api_keys ak
         LEFT JOIN plans p ON ak.plan_id = p.id
         WHERE ak.id = $1
@@ -198,6 +224,10 @@ pub async fn get_api_key(pool: &sqlx::PgPool, id: i32) -> Result<Option<DbApiKey
         label: row.get("label"),
         active: row.get("active"),
         quota_per_day: row.get("quota_per_day"),
+        daily_credit_limit: row.get("daily_credit_limit"),
+        monthly_credit_limit: row.get("monthly_credit_limit"),
+        max_input_tokens: row.get("max_input_tokens"),
+        max_output_tokens: row.get("max_output_tokens"),
         plan_id: row.get("plan_id"),
         plan_name: row.get("plan_name"),
         created_at: row.get("created_at"),
@@ -221,20 +251,31 @@ pub async fn validate_key(pool: &sqlx::PgPool, key: &str) -> Result<bool, sqlx::
 pub async fn create_api_key(
     pool: &sqlx::PgPool,
     key: &str,
-    label: Option<&str>,
-    quota_per_day: Option<i32>,
-    plan_id: Option<i32>,
+        label: Option<&str>,
+        quota_per_day: Option<i32>,
+        daily_credit_limit: Option<i64>,
+        monthly_credit_limit: Option<i64>,
+        max_input_tokens: Option<i32>,
+        max_output_tokens: Option<i32>,
+        plan_id: Option<i32>,
 ) -> Result<i32, sqlx::Error> {
     let result = sqlx::query(
         r#"
-        INSERT INTO api_keys (key, label, quota_per_day, plan_id)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO api_keys (
+            key, label, quota_per_day, daily_credit_limit, monthly_credit_limit,
+            max_input_tokens, max_output_tokens, plan_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
         "#,
     )
     .bind(key)
     .bind(label)
     .bind(quota_per_day)
+    .bind(daily_credit_limit)
+    .bind(monthly_credit_limit)
+    .bind(max_input_tokens)
+    .bind(max_output_tokens)
     .bind(plan_id)
     .fetch_one(pool)
     .await?;
@@ -248,6 +289,10 @@ pub async fn update_api_key(
     label: Option<&str>,
     active: Option<bool>,
     quota_per_day: Option<i32>,
+    daily_credit_limit: Option<i64>,
+    monthly_credit_limit: Option<i64>,
+    max_input_tokens: Option<i32>,
+    max_output_tokens: Option<i32>,
     plan_id: Option<i32>,
 ) -> Result<bool, sqlx::Error> {
     if let Some(value) = label {
@@ -276,6 +321,50 @@ pub async fn update_api_key(
         sqlx::query(
             r#"
             UPDATE api_keys SET quota_per_day = $1 WHERE id = $2
+            "#,
+        )
+        .bind(value)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    }
+    if let Some(value) = daily_credit_limit {
+        sqlx::query(
+            r#"
+            UPDATE api_keys SET daily_credit_limit = $1 WHERE id = $2
+            "#,
+        )
+        .bind(value)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    }
+    if let Some(value) = monthly_credit_limit {
+        sqlx::query(
+            r#"
+            UPDATE api_keys SET monthly_credit_limit = $1 WHERE id = $2
+            "#,
+        )
+        .bind(value)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    }
+    if let Some(value) = max_input_tokens {
+        sqlx::query(
+            r#"
+            UPDATE api_keys SET max_input_tokens = $1 WHERE id = $2
+            "#,
+        )
+        .bind(value)
+        .bind(id)
+        .execute(pool)
+        .await?;
+    }
+    if let Some(value) = max_output_tokens {
+        sqlx::query(
+            r#"
+            UPDATE api_keys SET max_output_tokens = $1 WHERE id = $2
             "#,
         )
         .bind(value)

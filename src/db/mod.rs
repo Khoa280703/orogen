@@ -26,7 +26,8 @@ pub use plans::get_plan;
 pub use providers::{create_provider, get_provider, list_providers, update_provider};
 pub use usage_logs::{
     count_today_by_api_key, count_today_by_api_key_scope, count_today_by_user,
-    count_today_by_user_scope,
+    count_today_by_user_scope, sum_daily_credits_by_api_key, sum_daily_credits_by_user,
+    sum_monthly_credits_by_api_key, sum_monthly_credits_by_user,
 };
 
 use sqlx::postgres::PgPoolOptions;

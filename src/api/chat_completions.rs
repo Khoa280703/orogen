@@ -11,7 +11,7 @@ use serde_json::{Value, json};
 
 use crate::AppState;
 use crate::api::consumer_api_support::{finalize_stream_provider_error, mark_account_success};
-use crate::api::plan_enforcement::{REQUEST_KIND_CHAT, enforce_plan_access};
+use crate::api::plan_enforcement::{REQUEST_KIND_CHAT, enforce_usage_context};
 use crate::api::request_orchestrator::{
     UNEXPECTED_STREAM_END_MESSAGE, collect_orchestrated_chat_completion,
     normalize_chat_completion_messages, resolve_model_route, start_orchestrated_chat_stream,
@@ -19,6 +19,10 @@ use crate::api::request_orchestrator::{
 use crate::error::AppError;
 use crate::grok::client::GrokRequestError;
 use crate::providers::ChatStreamEvent;
+use crate::services::usage_metering::{
+    UsageSnapshot, build_estimated_usage, calculate_credits, estimate_chat_input_tokens,
+    parse_pricing_policy,
+};
 
 #[derive(Debug, Clone, Default)]
 pub struct ApiKey(pub String);
@@ -31,6 +35,13 @@ pub(crate) struct UsageContext {
     pub(crate) provider_slug: String,
     pub(crate) model: String,
     pub(crate) request_kind: &'static str,
+    pub(crate) estimated_input_tokens: i64,
+    pub(crate) requested_output_tokens: Option<i64>,
+    pub(crate) api_key_quota_per_day: Option<i32>,
+    pub(crate) api_key_daily_credit_limit: Option<i64>,
+    pub(crate) api_key_monthly_credit_limit: Option<i64>,
+    pub(crate) api_key_max_input_tokens: Option<i32>,
+    pub(crate) api_key_max_output_tokens: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -39,6 +50,10 @@ pub struct ChatCompletionRequest {
     pub messages: Vec<ChatCompletionMessage>,
     #[serde(default)]
     pub stream: bool,
+    #[serde(default)]
+    pub max_tokens: Option<i64>,
+    #[serde(default)]
+    pub max_completion_tokens: Option<i64>,
     #[serde(default)]
     pub tools: Vec<Value>,
 }
@@ -71,7 +86,7 @@ pub async fn chat_completions(
     track_api_key_usage(&state, &api_key).await;
 
     let route = resolve_model_route(&state, body.model.as_deref()).await?;
-    let usage_context = resolve_usage_context(
+    let mut usage_context = resolve_usage_context(
         &state,
         &api_key,
         &route.provider_slug,
@@ -80,17 +95,10 @@ pub async fn chat_completions(
     )
     .await?;
 
-    enforce_plan_access(
-        &state.db,
-        usage_context.user_id,
-        usage_context.api_key_id,
-        usage_context.plan_id,
-        usage_context.request_kind,
-        &route.public_model_slug,
-    )
-    .await?;
-
     let (system_prompt, messages) = normalize_chat_completion_messages(&body.messages)?;
+    usage_context.estimated_input_tokens = estimate_chat_input_tokens(&system_prompt, &messages);
+    usage_context.requested_output_tokens = body.max_completion_tokens.or(body.max_tokens);
+    usage_context.plan_id = Some(enforce_usage_context(&state.db, &usage_context, &route.public_model_slug).await?);
     let completion_id = format!("chatcmpl-{}", &uuid::Uuid::new_v4().to_string()[..12]);
 
     if body.stream {
@@ -115,6 +123,7 @@ pub async fn chat_completions(
         &usage_context,
     )
     .await?;
+    let usage_snapshot = build_success_usage_snapshot(&usage_context, &output.content, &output.thinking);
 
     Ok(Json(json!({
         "id": completion_id,
@@ -130,9 +139,9 @@ pub async fn chat_completions(
             "finish_reason": "stop",
         }],
         "usage": {
-            "prompt_tokens": 0,
-            "completion_tokens": 0,
-            "total_tokens": 0,
+            "prompt_tokens": usage_snapshot.input_tokens,
+            "completion_tokens": usage_snapshot.output_tokens,
+            "total_tokens": usage_snapshot.input_tokens + usage_snapshot.output_tokens,
         },
     }))
     .into_response())
@@ -160,6 +169,8 @@ async fn stream_response(
         .await {
             Ok((mut rx, account_id, _account_name, _provider)) => {
                 let started_at = std::time::Instant::now();
+                let mut output_text = String::new();
+                let mut reasoning_text = String::new();
                 yield Ok(Event::default().data(serde_json::to_string(&role_chunk(&completion_id, &model)).unwrap()));
 
                 while let Some(event) = rx.recv().await {
@@ -168,11 +179,23 @@ async fn stream_response(
                             if token.is_empty() {
                                 continue;
                             }
+                            output_text.push_str(&token);
                             yield Ok(Event::default().data(serde_json::to_string(&content_chunk(&completion_id, &model, &token)).unwrap()));
                         }
-                        ChatStreamEvent::Thinking(_) => {}
+                        ChatStreamEvent::Thinking(token) => {
+                            reasoning_text.push_str(&token);
+                        }
                         ChatStreamEvent::Done => {
-                            finish_completion(&state, &usage_context, account_id, "success", true, started_at).await;
+                            finish_completion_with_usage(
+                                &state,
+                                &usage_context,
+                                account_id,
+                                "success",
+                                true,
+                                started_at,
+                                &output_text,
+                                &reasoning_text,
+                            ).await;
                             yield Ok(Event::default().data(serde_json::to_string(&finish_chunk(&completion_id, &model, "stop")).unwrap()));
                             yield Ok(Event::default().data("[DONE]".to_string()));
                             return;
@@ -187,7 +210,16 @@ async fn stream_response(
                     }
                 }
 
-                finish_completion(&state, &usage_context, account_id, "stream_interrupted", false, started_at).await;
+                finish_completion_with_usage(
+                    &state,
+                    &usage_context,
+                    account_id,
+                    "stream_interrupted",
+                    false,
+                    started_at,
+                    &output_text,
+                    &reasoning_text,
+                ).await;
                 yield Ok(Event::default().data(serde_json::to_string(&json!({
                     "error": { "message": UNEXPECTED_STREAM_END_MESSAGE }
                 })).unwrap()));
@@ -203,13 +235,15 @@ async fn stream_response(
     Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
-pub(crate) async fn finish_completion(
+pub(crate) async fn finish_completion_with_usage(
     state: &AppState,
     usage_context: &UsageContext,
     account_id: Option<i32>,
     status: &str,
     success: bool,
     started_at: std::time::Instant,
+    output_text: &str,
+    reasoning_text: &str,
 ) {
     if success {
         mark_account_success(&state.db, account_id).await;
@@ -220,12 +254,14 @@ pub(crate) async fn finish_completion(
         }
     }
 
-    record_usage(
+    record_usage_with_snapshot(
         state,
         usage_context,
         account_id,
         status,
         duration_to_latency_ms(started_at.elapsed()),
+        build_success_usage_snapshot(usage_context, output_text, reasoning_text),
+        success || !output_text.trim().is_empty() || !reasoning_text.trim().is_empty(),
     )
     .await;
 }
@@ -296,6 +332,13 @@ pub(crate) async fn resolve_usage_context(
             provider_slug: provider_slug.to_string(),
             model: model.to_string(),
             request_kind,
+            estimated_input_tokens: 0,
+            requested_output_tokens: None,
+            api_key_quota_per_day: None,
+            api_key_daily_credit_limit: None,
+            api_key_monthly_credit_limit: None,
+            api_key_max_input_tokens: None,
+            api_key_max_output_tokens: None,
         });
     }
 
@@ -306,10 +349,17 @@ pub(crate) async fn resolve_usage_context(
     Ok(UsageContext {
         api_key_id: key.as_ref().map(|row| row.id),
         user_id: key.as_ref().and_then(|row| row.user_id),
-        plan_id: key.and_then(|row| row.plan_id),
+        plan_id: key.as_ref().and_then(|row| row.plan_id),
         provider_slug: provider_slug.to_string(),
         model: model.to_string(),
         request_kind,
+        estimated_input_tokens: 0,
+        requested_output_tokens: None,
+        api_key_quota_per_day: key.as_ref().and_then(|row| row.quota_per_day),
+        api_key_daily_credit_limit: key.as_ref().and_then(|row| row.daily_credit_limit),
+        api_key_monthly_credit_limit: key.as_ref().and_then(|row| row.monthly_credit_limit),
+        api_key_max_input_tokens: key.as_ref().and_then(|row| row.max_input_tokens),
+        api_key_max_output_tokens: key.as_ref().and_then(|row| row.max_output_tokens),
     })
 }
 
@@ -320,16 +370,63 @@ pub(crate) async fn record_usage(
     status: &str,
     latency_ms: i32,
 ) {
+    record_usage_with_snapshot(
+        state,
+        usage_context,
+        account_id,
+        status,
+        latency_ms,
+        UsageSnapshot {
+            input_tokens: usage_context.estimated_input_tokens,
+            output_tokens: 0,
+            cached_input_tokens: 0,
+            estimated: usage_context.estimated_input_tokens > 0,
+        },
+        false,
+    )
+    .await;
+}
+
+pub(crate) async fn record_usage_with_snapshot(
+    state: &AppState,
+    usage_context: &UsageContext,
+    account_id: Option<i32>,
+    status: &str,
+    latency_ms: i32,
+    snapshot: UsageSnapshot,
+    billable: bool,
+) {
+    let credits_used = if billable {
+        let features = match usage_context.plan_id {
+            Some(plan_id) => crate::db::plans::get_plan(&state.db, plan_id)
+                .await
+                .ok()
+                .flatten()
+                .and_then(|plan| plan.features),
+            None => None,
+        };
+        let pricing = parse_pricing_policy(features.as_ref());
+        calculate_credits(snapshot, pricing.rates_for_model(&usage_context.model))
+    } else {
+        0
+    };
+
     if let Err(error) = crate::db::usage_logs::log_request(
         &state.db,
         usage_context.api_key_id,
         usage_context.user_id,
+        usage_context.plan_id,
         account_id,
         Some(usage_context.provider_slug.as_str()),
         Some(usage_context.model.as_str()),
         Some(usage_context.request_kind),
         status,
         latency_ms,
+        snapshot.input_tokens,
+        snapshot.output_tokens,
+        snapshot.cached_input_tokens,
+        credits_used,
+        snapshot.estimated,
     )
     .await
     {
@@ -341,6 +438,14 @@ pub(crate) async fn record_usage(
             "Failed to persist usage log"
         );
     }
+}
+
+pub(crate) fn build_success_usage_snapshot(
+    usage_context: &UsageContext,
+    output_text: &str,
+    reasoning_text: &str,
+) -> UsageSnapshot {
+    build_estimated_usage(usage_context.estimated_input_tokens, output_text, reasoning_text)
 }
 
 pub(crate) async fn touch_api_key_last_used(state: &AppState, usage_context: &UsageContext) {

@@ -6,11 +6,17 @@ use sqlx::{FromRow, Postgres, QueryBuilder, Row};
 pub struct UsageLog {
     pub id: Option<i64>,
     pub api_key_id: Option<i32>,
+    pub plan_id: Option<i32>,
     pub account_id: Option<i32>,
     pub provider_slug: Option<String>,
     pub model: Option<String>,
     pub status: Option<String>,
     pub latency_ms: Option<i32>,
+    pub prompt_tokens: Option<i64>,
+    pub completion_tokens: Option<i64>,
+    pub cached_tokens: Option<i64>,
+    pub credits_used: Option<i64>,
+    pub estimated_usage: Option<bool>,
     pub created_at: Option<DateTime<Utc>>,
 }
 
@@ -24,6 +30,9 @@ pub struct UsageLogWithUser {
     pub model: String,
     pub status_code: i32,
     pub latency_ms: i32,
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub credits_used: i64,
     pub created_at: DateTime<Utc>,
 }
 
@@ -33,14 +42,20 @@ impl Serialize for UsageLog {
         S: serde::Serializer,
     {
         use serde::ser::SerializeStruct;
-        let mut state = serializer.serialize_struct("UsageLog", 8)?;
+        let mut state = serializer.serialize_struct("UsageLog", 14)?;
         state.serialize_field("id", &self.id)?;
         state.serialize_field("api_key_id", &self.api_key_id)?;
+        state.serialize_field("plan_id", &self.plan_id)?;
         state.serialize_field("account_id", &self.account_id)?;
         state.serialize_field("provider_slug", &self.provider_slug)?;
         state.serialize_field("model", &self.model)?;
         state.serialize_field("status", &self.status)?;
         state.serialize_field("latency_ms", &self.latency_ms)?;
+        state.serialize_field("prompt_tokens", &self.prompt_tokens)?;
+        state.serialize_field("completion_tokens", &self.completion_tokens)?;
+        state.serialize_field("cached_tokens", &self.cached_tokens)?;
+        state.serialize_field("credits_used", &self.credits_used)?;
+        state.serialize_field("estimated_usage", &self.estimated_usage)?;
         state.serialize_field("created_at", &self.created_at.map(|d| d.to_rfc3339()))?;
         state.end()
     }
@@ -58,33 +73,66 @@ pub struct CountResult {
     pub count: Option<i64>,
 }
 
+#[derive(Debug, Clone, Default, FromRow, Serialize)]
+pub struct UsageLogAggregates {
+    pub prompt_tokens: Option<i64>,
+    pub completion_tokens: Option<i64>,
+    pub cached_tokens: Option<i64>,
+    pub credits_used: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, FromRow, Serialize)]
+pub struct UsageLogBreakdownRow {
+    pub label: Option<String>,
+    pub requests: Option<i64>,
+    pub prompt_tokens: Option<i64>,
+    pub completion_tokens: Option<i64>,
+    pub cached_tokens: Option<i64>,
+    pub credits_used: Option<i64>,
+}
+
 /// Log a request
 pub async fn log_request(
     pool: &sqlx::PgPool,
     api_key_id: Option<i32>,
     user_id: Option<i32>,
+    plan_id: Option<i32>,
     account_id: Option<i32>,
     provider_slug: Option<&str>,
     model: Option<&str>,
     request_kind: Option<&str>,
     status: &str,
     latency_ms: i32,
+    prompt_tokens: i64,
+    completion_tokens: i64,
+    cached_tokens: i64,
+    credits_used: i64,
+    estimated_usage: bool,
 ) -> Result<i64, sqlx::Error> {
     let result = sqlx::query_scalar::<_, i64>(
         r#"
-        INSERT INTO usage_logs (api_key_id, user_id, account_id, provider_slug, model, request_kind, status, latency_ms)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO usage_logs (
+            api_key_id, user_id, plan_id, account_id, provider_slug, model, request_kind, status,
+            latency_ms, prompt_tokens, completion_tokens, cached_tokens, credits_used, estimated_usage
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         RETURNING id
         "#,
     )
     .bind(api_key_id)
     .bind(user_id)
+    .bind(plan_id)
     .bind(account_id)
     .bind(provider_slug)
     .bind(model)
     .bind(request_kind)
     .bind(status)
     .bind(latency_ms)
+    .bind(prompt_tokens)
+    .bind(completion_tokens)
+    .bind(cached_tokens)
+    .bind(credits_used)
+    .bind(estimated_usage)
     .fetch_one(pool)
     .await?;
 
@@ -102,7 +150,7 @@ pub async fn get_usage_logs(
     provider: Option<&str>,
 ) -> Result<Vec<UsageLog>, sqlx::Error> {
     let mut builder = QueryBuilder::<Postgres>::new(
-        "SELECT id, api_key_id, account_id, provider_slug, model, status, latency_ms, created_at FROM usage_logs",
+        "SELECT id, api_key_id, plan_id, account_id, provider_slug, model, status, latency_ms, prompt_tokens, completion_tokens, cached_tokens, credits_used, estimated_usage, created_at FROM usage_logs",
     );
     push_usage_log_filters(&mut builder, search, status, model, provider);
     builder.push(" ORDER BY created_at DESC LIMIT ");
@@ -127,6 +175,95 @@ pub async fn get_usage_log_count(
 
     let row = builder.build().fetch_one(pool).await?;
     Ok(row.get::<i64, _>("count"))
+}
+
+pub async fn get_usage_log_aggregates(
+    pool: &sqlx::PgPool,
+    search: Option<&str>,
+    status: Option<&str>,
+    model: Option<&str>,
+    provider: Option<&str>,
+) -> Result<UsageLogAggregates, sqlx::Error> {
+    let mut builder = QueryBuilder::<Postgres>::new(
+        r#"
+        SELECT
+            COALESCE(SUM(prompt_tokens), 0)::BIGINT AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0)::BIGINT AS completion_tokens,
+            COALESCE(SUM(cached_tokens), 0)::BIGINT AS cached_tokens,
+            COALESCE(SUM(credits_used), 0)::BIGINT AS credits_used
+        FROM usage_logs
+        "#,
+    );
+    push_usage_log_filters(&mut builder, search, status, model, provider);
+
+    builder
+        .build_query_as::<UsageLogAggregates>()
+        .fetch_one(pool)
+        .await
+}
+
+pub async fn get_provider_usage_breakdown(
+    pool: &sqlx::PgPool,
+    search: Option<&str>,
+    status: Option<&str>,
+    model: Option<&str>,
+    provider: Option<&str>,
+    limit: i64,
+) -> Result<Vec<UsageLogBreakdownRow>, sqlx::Error> {
+    let mut builder = QueryBuilder::<Postgres>::new(
+        r#"
+        SELECT
+            COALESCE(NULLIF(provider_slug, ''), 'unknown') AS label,
+            COUNT(*)::BIGINT AS requests,
+            COALESCE(SUM(prompt_tokens), 0)::BIGINT AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0)::BIGINT AS completion_tokens,
+            COALESCE(SUM(cached_tokens), 0)::BIGINT AS cached_tokens,
+            COALESCE(SUM(credits_used), 0)::BIGINT AS credits_used
+        FROM usage_logs
+        "#,
+    );
+    push_usage_log_filters(&mut builder, search, status, model, provider);
+    builder.push(
+        " GROUP BY COALESCE(NULLIF(provider_slug, ''), 'unknown') ORDER BY credits_used DESC, requests DESC, label ASC LIMIT ",
+    );
+    builder.push_bind(limit.max(1));
+
+    builder
+        .build_query_as::<UsageLogBreakdownRow>()
+        .fetch_all(pool)
+        .await
+}
+
+pub async fn get_model_usage_breakdown(
+    pool: &sqlx::PgPool,
+    search: Option<&str>,
+    status: Option<&str>,
+    model: Option<&str>,
+    provider: Option<&str>,
+    limit: i64,
+) -> Result<Vec<UsageLogBreakdownRow>, sqlx::Error> {
+    let mut builder = QueryBuilder::<Postgres>::new(
+        r#"
+        SELECT
+            COALESCE(NULLIF(model, ''), 'unknown') AS label,
+            COUNT(*)::BIGINT AS requests,
+            COALESCE(SUM(prompt_tokens), 0)::BIGINT AS prompt_tokens,
+            COALESCE(SUM(completion_tokens), 0)::BIGINT AS completion_tokens,
+            COALESCE(SUM(cached_tokens), 0)::BIGINT AS cached_tokens,
+            COALESCE(SUM(credits_used), 0)::BIGINT AS credits_used
+        FROM usage_logs
+        "#,
+    );
+    push_usage_log_filters(&mut builder, search, status, model, provider);
+    builder.push(
+        " GROUP BY COALESCE(NULLIF(model, ''), 'unknown') ORDER BY credits_used DESC, requests DESC, label ASC LIMIT ",
+    );
+    builder.push_bind(limit.max(1));
+
+    builder
+        .build_query_as::<UsageLogBreakdownRow>()
+        .fetch_all(pool)
+        .await
 }
 
 pub async fn list_usage_log_models(pool: &sqlx::PgPool) -> Result<Vec<String>, sqlx::Error> {
@@ -309,7 +446,7 @@ pub async fn list_by_user(
     let rows = sqlx::query(
         r#"
         SELECT ul.id, ul.api_key_id, ul.account_id, COALESCE(ul.user_id, ak.user_id) as user_id, ul.provider_slug, ul.model,
-               ul.status as status, ul.latency_ms, ul.created_at
+               ul.status as status, ul.latency_ms, ul.prompt_tokens, ul.completion_tokens, ul.credits_used, ul.created_at
         FROM usage_logs ul
         LEFT JOIN api_keys ak ON ul.api_key_id = ak.id
         WHERE COALESCE(ul.user_id, ak.user_id) = $1
@@ -334,6 +471,9 @@ pub async fn list_by_user(
             model: r.get::<Option<String>, _>("model").unwrap_or_default(),
             status_code: usage_status_to_status_code(&r.get::<String, _>("status")),
             latency_ms: r.get::<Option<i32>, _>("latency_ms").unwrap_or(0),
+            prompt_tokens: r.get::<Option<i64>, _>("prompt_tokens").unwrap_or(0),
+            completion_tokens: r.get::<Option<i64>, _>("completion_tokens").unwrap_or(0),
+            credits_used: r.get::<Option<i64>, _>("credits_used").unwrap_or(0),
             created_at: r
                 .get::<Option<DateTime<Utc>>, _>("created_at")
                 .unwrap_or(Utc::now()),
@@ -418,5 +558,105 @@ pub async fn count_today_by_api_key_scope(
     .fetch_one(pool)
     .await?;
 
+    Ok(result.unwrap_or(0))
+}
+
+pub async fn sum_daily_credits_by_user(
+    pool: &sqlx::PgPool,
+    user_id: i32,
+    request_kind: Option<&str>,
+    model: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    let today = Utc::now().date_naive();
+    let result: Option<i64> = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(SUM(credits_used), 0)::BIGINT
+        FROM usage_logs
+        WHERE user_id = $1
+          AND DATE(created_at) = $2
+          AND ($3::TEXT IS NULL OR request_kind = $3)
+          AND ($4::TEXT IS NULL OR model = $4)
+        "#,
+    )
+    .bind(user_id)
+    .bind(today)
+    .bind(request_kind)
+    .bind(model)
+    .fetch_one(pool)
+    .await?;
+    Ok(result.unwrap_or(0))
+}
+
+pub async fn sum_monthly_credits_by_user(
+    pool: &sqlx::PgPool,
+    user_id: i32,
+    request_kind: Option<&str>,
+    model: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    let result: Option<i64> = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(SUM(credits_used), 0)::BIGINT
+        FROM usage_logs
+        WHERE user_id = $1
+          AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+          AND ($2::TEXT IS NULL OR request_kind = $2)
+          AND ($3::TEXT IS NULL OR model = $3)
+        "#,
+    )
+    .bind(user_id)
+    .bind(request_kind)
+    .bind(model)
+    .fetch_one(pool)
+    .await?;
+    Ok(result.unwrap_or(0))
+}
+
+pub async fn sum_daily_credits_by_api_key(
+    pool: &sqlx::PgPool,
+    api_key_id: i32,
+    request_kind: Option<&str>,
+    model: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    let today = Utc::now().date_naive();
+    let result: Option<i64> = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(SUM(credits_used), 0)::BIGINT
+        FROM usage_logs
+        WHERE api_key_id = $1
+          AND DATE(created_at) = $2
+          AND ($3::TEXT IS NULL OR request_kind = $3)
+          AND ($4::TEXT IS NULL OR model = $4)
+        "#,
+    )
+    .bind(api_key_id)
+    .bind(today)
+    .bind(request_kind)
+    .bind(model)
+    .fetch_one(pool)
+    .await?;
+    Ok(result.unwrap_or(0))
+}
+
+pub async fn sum_monthly_credits_by_api_key(
+    pool: &sqlx::PgPool,
+    api_key_id: i32,
+    request_kind: Option<&str>,
+    model: Option<&str>,
+) -> Result<i64, sqlx::Error> {
+    let result: Option<i64> = sqlx::query_scalar(
+        r#"
+        SELECT COALESCE(SUM(credits_used), 0)::BIGINT
+        FROM usage_logs
+        WHERE api_key_id = $1
+          AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', NOW())
+          AND ($2::TEXT IS NULL OR request_kind = $2)
+          AND ($3::TEXT IS NULL OR model = $3)
+        "#,
+    )
+    .bind(api_key_id)
+    .bind(request_kind)
+    .bind(model)
+    .fetch_one(pool)
+    .await?;
     Ok(result.unwrap_or(0))
 }

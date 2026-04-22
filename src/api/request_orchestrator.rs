@@ -5,7 +5,9 @@ use serde_json::Value;
 use tokio::sync::mpsc;
 
 use crate::AppState;
-use crate::api::chat_completions::{ChatCompletionMessage, UsageContext, finish_completion};
+use crate::api::chat_completions::{
+    ChatCompletionMessage, UsageContext, finish_completion_with_usage,
+};
 use crate::api::consumer_api_support::{
     finalize_stream_provider_error, start_chat_stream_with_retry,
 };
@@ -355,13 +357,15 @@ pub async fn collect_orchestrated_chat_completion(
             ChatStreamEvent::Token(token) => output.content.push_str(&token),
             ChatStreamEvent::Thinking(token) => output.thinking.push_str(&token),
             ChatStreamEvent::Done => {
-                finish_completion(
+                finish_completion_with_usage(
                     state,
                     usage_context,
                     account_id,
                     "success",
                     true,
                     started_at,
+                    &output.content,
+                    &output.thinking,
                 )
                 .await;
                 return Ok(output);
@@ -380,13 +384,15 @@ pub async fn collect_orchestrated_chat_completion(
         }
     }
 
-    finish_completion(
+    finish_completion_with_usage(
         state,
         usage_context,
         account_id,
         "stream_interrupted",
         false,
         started_at,
+        &output.content,
+        &output.thinking,
     )
     .await;
     Err(AppError::GrokApi(UNEXPECTED_STREAM_END_MESSAGE.into()))

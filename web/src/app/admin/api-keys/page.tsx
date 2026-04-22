@@ -46,6 +46,10 @@ interface ApiKey {
   label: string | null;
   active: boolean;
   quota_per_day: number | null;
+  daily_credit_limit: number | null;
+  monthly_credit_limit: number | null;
+  max_input_tokens: number | null;
+  max_output_tokens: number | null;
   plan_id: number | null;
   plan_name: string | null;
   created_at: string | null;
@@ -66,6 +70,10 @@ export default function ApiKeysPage() {
   const [newKey, setNewKey] = useState<string | null>(null);
   const [label, setLabel] = useState('');
   const [quota, setQuota] = useState('');
+  const [dailyCreditLimit, setDailyCreditLimit] = useState('');
+  const [monthlyCreditLimit, setMonthlyCreditLimit] = useState('');
+  const [maxInputTokens, setMaxInputTokens] = useState('');
+  const [maxOutputTokens, setMaxOutputTokens] = useState('');
   const [planId, setPlanId] = useState('none');
   const [error, setError] = useState('');
   const [revealedKey, setRevealedKey] = useState<number | null>(null);
@@ -128,15 +136,23 @@ export default function ApiKeysPage() {
     }
 
     try {
-      const result = await createApiKey(
-        label || undefined,
-        quota ? parseInt(quota) : undefined,
-        planId === 'none' ? undefined : parseInt(planId, 10),
-      );
+      const result = await createApiKey({
+        label: label || undefined,
+        quotaPerDay: quota ? parseInt(quota, 10) : undefined,
+        dailyCreditLimit: dailyCreditLimit ? parseInt(dailyCreditLimit, 10) : undefined,
+        monthlyCreditLimit: monthlyCreditLimit ? parseInt(monthlyCreditLimit, 10) : undefined,
+        maxInputTokens: maxInputTokens ? parseInt(maxInputTokens, 10) : undefined,
+        maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens, 10) : undefined,
+        planId: planId === 'none' ? undefined : parseInt(planId, 10),
+      });
       setPageError(null);
       setNewKey(result.key);
       setLabel('');
       setQuota('');
+      setDailyCreditLimit('');
+      setMonthlyCreditLimit('');
+      setMaxInputTokens('');
+      setMaxOutputTokens('');
       setPlanId('none');
       loadData();
     } catch (error) {
@@ -271,7 +287,9 @@ export default function ApiKeysPage() {
                 <TableHead>Key</TableHead>
                 <TableHead>Active</TableHead>
                 <TableHead>Plan</TableHead>
-                <TableHead>Quota/Day</TableHead>
+                <TableHead>Req/Day</TableHead>
+                <TableHead>Credits</TableHead>
+                <TableHead>Token Guard</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
               </TableRow>
@@ -319,8 +337,14 @@ export default function ApiKeysPage() {
                       <span className="text-slate-500">No plan</span>
                     )}
                   </TableCell>
-                  <TableCell>
-                    {key.quota_per_day || 'Unlimited'}
+                  <TableCell>{key.quota_per_day || 'Unlimited'}</TableCell>
+                  <TableCell className="text-xs text-slate-500">
+                    <div>Day: {key.daily_credit_limit || 'Unlimited'}</div>
+                    <div>Month: {key.monthly_credit_limit || 'Unlimited'}</div>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-500">
+                    <div>In: {key.max_input_tokens || 'None'}</div>
+                    <div>Out: {key.max_output_tokens || 'None'}</div>
                   </TableCell>
                   <TableCell className="text-slate-400">
                     {key.created_at?.slice(0, 10) || '-'}
@@ -337,9 +361,9 @@ export default function ApiKeysPage() {
                 </TableRow>
               )) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-sm text-slate-500">
-                    No API keys match the current filters.
-                  </TableCell>
+                      <TableCell colSpan={9} className="py-8 text-center text-sm text-slate-500">
+                        No API keys match the current filters.
+                      </TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -452,6 +476,26 @@ export default function ApiKeysPage() {
                   Leave empty for unlimited (max: 10,000,000)
                 </p>
               </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Daily Credits (optional)</label>
+                  <Input type="number" value={dailyCreditLimit} onChange={(e) => setDailyCreditLimit(e.target.value)} placeholder="50000" min={1} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Monthly Credits (optional)</label>
+                  <Input type="number" value={monthlyCreditLimit} onChange={(e) => setMonthlyCreditLimit(e.target.value)} placeholder="1000000" min={1} />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Max Input Tokens (optional)</label>
+                  <Input type="number" value={maxInputTokens} onChange={(e) => setMaxInputTokens(e.target.value)} placeholder="16000" min={1} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Max Output Tokens (optional)</label>
+                  <Input type="number" value={maxOutputTokens} onChange={(e) => setMaxOutputTokens(e.target.value)} placeholder="4000" min={1} />
+                </div>
+              </div>
             </div>
           )}
 
@@ -463,6 +507,10 @@ export default function ApiKeysPage() {
                 setNewKey(null);
                 setLabel('');
                 setQuota('');
+                setDailyCreditLimit('');
+                setMonthlyCreditLimit('');
+                setMaxInputTokens('');
+                setMaxOutputTokens('');
                 setPlanId('none');
                 setError('');
               }}

@@ -20,6 +20,19 @@ interface PlanFeatures {
   priority?: boolean;
   dedicated_support?: boolean;
   rate_limit?: string;
+  quota?: {
+    daily_credits?: number;
+    monthly_credits?: number;
+    max_input_tokens_per_request?: number;
+    max_output_tokens_per_request?: number;
+    pricing?: {
+      default?: {
+        input_per_token?: number;
+        output_per_token?: number;
+        cached_input_per_token?: number;
+      };
+    };
+  };
   model_limits?: Record<string, {
     chat_per_day?: number;
     image_per_day?: number;
@@ -39,6 +52,32 @@ interface Plan {
   features: PlanFeatures | null;
   active: boolean;
   sort_order: number;
+}
+
+function formatLimit(value?: number | null) {
+  if (value === null || value === undefined || value === 0) return 'Unlimited';
+  if (value === -1) return '\u221E';
+  return value.toLocaleString();
+}
+
+function describeCredits(features: PlanFeatures | null) {
+  const quota = features?.quota;
+  if (!quota) return 'Not set';
+  const daily = quota.daily_credits ? `D ${formatLimit(quota.daily_credits)}` : null;
+  const monthly = quota.monthly_credits ? `M ${formatLimit(quota.monthly_credits)}` : null;
+  return [daily, monthly].filter(Boolean).join(' · ') || 'Not set';
+}
+
+function describeTokenGuard(features: PlanFeatures | null) {
+  const quota = features?.quota;
+  if (!quota) return 'Not set';
+  const input = quota.max_input_tokens_per_request
+    ? `In ${formatLimit(quota.max_input_tokens_per_request)}`
+    : null;
+  const output = quota.max_output_tokens_per_request
+    ? `Out ${formatLimit(quota.max_output_tokens_per_request)}`
+    : null;
+  return [input, output].filter(Boolean).join(' · ') || 'Not set';
 }
 
 export default function PlansPage() {
@@ -99,6 +138,8 @@ export default function PlansPage() {
 
   const openEdit = (plan: Plan) => {
     const f = plan.features || {};
+    const quota = f.quota || {};
+    const pricing = quota.pricing?.default || {};
     setEditState({
       open: true,
       planId: plan.id,
@@ -107,6 +148,13 @@ export default function PlansPage() {
         slug: plan.slug,
         requests_per_day: plan.requests_per_day?.toString() || '',
         requests_per_month: plan.requests_per_month?.toString() || '',
+        daily_credits: quota.daily_credits?.toString() || '',
+        monthly_credits: quota.monthly_credits?.toString() || '',
+        max_input_tokens_per_request: quota.max_input_tokens_per_request?.toString() || '',
+        max_output_tokens_per_request: quota.max_output_tokens_per_request?.toString() || '',
+        input_per_token: pricing.input_per_token?.toString() || '1',
+        output_per_token: pricing.output_per_token?.toString() || '4',
+        cached_input_per_token: pricing.cached_input_per_token?.toString() || '0.2',
         price_usd: plan.price_usd || '',
         price_vnd: plan.price_vnd?.toString() || '',
         sort_order: plan.sort_order.toString(),
@@ -128,8 +176,6 @@ export default function PlansPage() {
       },
     });
   };
-
-  const fmt = (n: number | null) => (n === -1 ? '\u221E' : n || '\u221E');
 
   const filteredPlans = useMemo(() => {
     const keyword = search.trim().toLowerCase();
@@ -186,8 +232,9 @@ export default function PlansPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Slug</TableHead>
                     <TableHead>Price</TableHead>
-                    <TableHead>Req/Day</TableHead>
-                    <TableHead>Req/Month</TableHead>
+                    <TableHead>Credits</TableHead>
+                    <TableHead>Token Guard</TableHead>
+                    <TableHead>Request Fallback</TableHead>
                     <TableHead>Features</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -202,8 +249,15 @@ export default function PlansPage() {
                         {plan.price_usd ? `$${plan.price_usd}` : 'Free'}
                         {plan.price_vnd ? ` (${Number(plan.price_vnd).toLocaleString()}d)` : ''}
                       </TableCell>
-                      <TableCell>{fmt(plan.requests_per_day)}</TableCell>
-                      <TableCell>{fmt(plan.requests_per_month)}</TableCell>
+                      <TableCell className="text-sm text-slate-500">
+                        {describeCredits(plan.features)}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-500">
+                        {describeTokenGuard(plan.features)}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-500">
+                        D {formatLimit(plan.requests_per_day)} · M {formatLimit(plan.requests_per_month)}
+                      </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {plan.features?.streaming && <Badge variant="outline" className="text-xs">Stream</Badge>}

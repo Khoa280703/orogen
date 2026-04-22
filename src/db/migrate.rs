@@ -141,6 +141,18 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     sqlx::query(r#"ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ"#)
         .execute(&pool)
         .await?;
+    sqlx::query(r#"ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS daily_credit_limit BIGINT"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS monthly_credit_limit BIGINT"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS max_input_tokens INTEGER"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS max_output_tokens INTEGER"#)
+        .execute(&pool)
+        .await?;
 
     sqlx::query(r#"ALTER TABLE accounts ADD COLUMN IF NOT EXISTS profile_dir TEXT"#)
         .execute(&pool)
@@ -262,6 +274,9 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_api_keys_plan ON api_keys(plan_id)"#)
         .execute(&pool)
         .await?;
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_api_keys_daily_credit_limit ON api_keys(daily_credit_limit)"#)
+        .execute(&pool)
+        .await?;
 
     // Modify usage_logs table
     sqlx::query(
@@ -271,6 +286,26 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     .await?;
 
     sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS request_kind TEXT"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(
+        r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS plan_id INTEGER REFERENCES plans(id) ON DELETE SET NULL"#,
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS prompt_tokens BIGINT NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS completion_tokens BIGINT NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS cached_tokens BIGINT NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS credits_used BIGINT NOT NULL DEFAULT 0"#)
+        .execute(&pool)
+        .await?;
+    sqlx::query(r#"ALTER TABLE usage_logs ADD COLUMN IF NOT EXISTS estimated_usage BOOLEAN NOT NULL DEFAULT false"#)
         .execute(&pool)
         .await?;
 
@@ -312,6 +347,24 @@ pub async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error
     sqlx::query(
         r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_provider_kind_model_created
            ON usage_logs(provider_slug, request_kind, model, created_at DESC)"#,
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_plan_created
+           ON usage_logs(plan_id, created_at DESC)"#,
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_user_credits_created
+           ON usage_logs(user_id, created_at DESC, credits_used)"#,
+    )
+    .execute(&pool)
+    .await?;
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_usage_logs_api_key_credits_created
+           ON usage_logs(api_key_id, created_at DESC, credits_used)"#,
     )
     .execute(&pool)
     .await?;
